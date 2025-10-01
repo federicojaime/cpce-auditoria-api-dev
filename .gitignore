@@ -1,5 +1,5 @@
 *.env
 *.env.test
 *.env.production
-*.env copy
+/.env copy
 /node_modules
