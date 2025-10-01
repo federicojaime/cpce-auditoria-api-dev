@@ -1,12 +1,15 @@
 ﻿import { executeQuery, getConnection } from '../config/database.js';
 import ExcelJS from 'exceljs';
 import QRCode from 'qrcode';
-import puppeteer from 'puppeteer';
+//import puppeteer from 'puppeteer';
 import JsBarcode from 'jsbarcode';
 import { createCanvas } from 'canvas';
 import nodemailer from 'nodemailer';
 import { promises as fs } from 'fs';
 import path from 'path';
+import PDFUtils from '../utils/pdfUtils.js';
+
+
 
 // Función auxiliar para calcular edad
 export function calculateAge(fechaNacimiento) {
@@ -2762,7 +2765,7 @@ export const generarPDF = async (req, res) => {
         }
 
         // 3. Generar PDF
-        const pdfBuffer = await generarPDFDesdeHTML(htmlContent);
+        const pdfBuffer = await PDFUtils.generarPDFDesdeHTML(htmlContent);
 
         // 4. Guardar PDF
         const rutaLocal = `/var/www/test1.recetasalud.ar/audi/tmp/`; // 🔥 CAMBIO AQUÍ
@@ -4339,7 +4342,7 @@ async function regenerarPDFParaEmail(auditoriaId, connection) {
         }
 
         // Generar PDF
-        const pdfBuffer = await generarPDFDesdeHTML(htmlContent);
+        const pdfBuffer = await PDFUtils.generarPDFDesdeHTML(htmlContent);
 
         // Guardar PDF
         const rutaLocal = `/var/www/cpce.recetasalud.ar/audi/tmp/`;
