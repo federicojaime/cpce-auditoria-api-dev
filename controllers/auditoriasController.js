@@ -14,11 +14,11 @@ export function calculateAge(fechaNacimiento) {
     const birthDate = new Date(fechaNacimiento);
     let age = today.getFullYear() - birthDate.getFullYear();
     const monthDiff = today.getMonth() - birthDate.getMonth();
-    
+
     if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birthDate.getDate())) {
         age--;
     }
-    
+
     return age;
 }
 
@@ -121,7 +121,7 @@ export const getPendientes = async (req, res) => {
 export const getHistoricas = async (req, res) => {
     try {
         const { search = '', page = 1, limit = 10 } = req.query;
-        
+
         // Convertir a números para evitar problemas
         const pageNum = parseInt(page);
         const limitNum = parseInt(limit);
@@ -285,12 +285,12 @@ export const getListado = async (req, res) => {
 export const getHistorialPaciente = async (req, res) => {
     try {
         const { dni, page = 1, limit = 10, fechaDesde, fechaHasta, search } = req.query;
-        
+
         // Validar DNI
         if (!dni || dni.length < 7) {
-            return res.status(400).json({ 
-                success: false, 
-                message: 'DNI es requerido y debe tener al menos 7 dígitos' 
+            return res.status(400).json({
+                success: false,
+                message: 'DNI es requerido y debe tener al menos 7 dígitos'
             });
         }
 
@@ -298,7 +298,7 @@ export const getHistorialPaciente = async (req, res) => {
         const pageNum = parseInt(page);
         const limitNum = parseInt(limit);
         const offset = (pageNum - 1) * limitNum;
-        
+
         // Query base para contar - CON TABLAS CORRECTAS BASADAS EN PHP
         let countQuery = `
             SELECT COUNT(DISTINCT pm.idrecetamedic) as total
@@ -314,7 +314,7 @@ export const getHistorialPaciente = async (req, res) => {
             AND a.auditado IS NOT NULL
             AND pm.estado_auditoria IS NOT NULL
         `;
-        
+
         // Query principal - CON DATOS REALES DE MEDICAMENTOS USANDO TABLAS VAD_*
         let dataQuery = `
             SELECT DISTINCT
@@ -365,11 +365,11 @@ export const getHistorialPaciente = async (req, res) => {
             AND a.auditado IS NOT NULL
             AND pm.estado_auditoria IS NOT NULL
         `;
-        
+
         // Parámetros base
         const countParams = [dni];
         const dataParams = [dni];
-        
+
         // Filtro de fecha desde
         if (fechaDesde) {
             const dateFilter = ' AND DATE(a.fecha_origen) >= ?';
@@ -378,7 +378,7 @@ export const getHistorialPaciente = async (req, res) => {
             countParams.push(fechaDesde);
             dataParams.push(fechaDesde);
         }
-        
+
         // Filtro de fecha hasta
         if (fechaHasta) {
             const dateFilter = ' AND DATE(a.fecha_origen) <= ?';
@@ -387,7 +387,7 @@ export const getHistorialPaciente = async (req, res) => {
             countParams.push(fechaHasta);
             dataParams.push(fechaHasta);
         }
-        
+
         // Búsqueda en campos de texto - INCLUYENDO CAMPOS DE MEDICAMENTOS
         if (search && search.trim()) {
             const searchFilter = ` AND (
@@ -400,29 +400,29 @@ export const getHistorialPaciente = async (req, res) => {
             )`;
             countQuery += searchFilter;
             dataQuery += searchFilter;
-            
+
             const searchPattern = `%${search.trim()}%`;
             countParams.push(searchPattern, searchPattern, searchPattern, searchPattern, searchPattern, searchPattern);
             dataParams.push(searchPattern, searchPattern, searchPattern, searchPattern, searchPattern, searchPattern);
         }
-        
+
         // Primero contar total de registros
         console.log('Count Query:', countQuery);
         console.log('Count Params:', countParams);
-        
+
         const countResult = await executeQuery(countQuery, countParams);
         const total = countResult[0]?.total || 0;
-        
+
         // Agregar ORDER BY y LIMIT/OFFSET a la consulta de datos
         dataQuery += ` ORDER BY a.fecha_origen DESC, pm.idrecetamedic DESC`;
         dataQuery += ` LIMIT ${limitNum} OFFSET ${offset}`;
-        
+
         console.log('Data Query:', dataQuery);
         console.log('Data Params:', dataParams);
-        
+
         // Ejecutar consulta principal
         const medicamentos = await executeQuery(dataQuery, dataParams);
-        
+
         // Obtener datos del paciente
         const pacienteQuery = `
             SELECT 
@@ -439,9 +439,9 @@ export const getHistorialPaciente = async (req, res) => {
             LIMIT 1
         `;
         const pacienteData = await executeQuery(pacienteQuery, [dni]);
-        
+
         const totalPages = Math.ceil(total / limitNum);
-        
+
         // Si no hay datos, verificar si el paciente existe
         if (medicamentos.length === 0 && !pacienteData[0]) {
             // Buscar solo por DNI para ver si existe el paciente
@@ -449,7 +449,7 @@ export const getHistorialPaciente = async (req, res) => {
                 'SELECT COUNT(*) as existe FROM rec_paciente WHERE dni = ?',
                 [dni]
             );
-            
+
             if (checkPaciente[0]?.existe === 0) {
                 return res.json({
                     success: false,
@@ -463,7 +463,7 @@ export const getHistorialPaciente = async (req, res) => {
                 });
             }
         }
-        
+
         res.json({
             success: true,
             data: medicamentos || [],
@@ -474,13 +474,13 @@ export const getHistorialPaciente = async (req, res) => {
             totalPages,
             message: medicamentos.length === 0 ? 'No se encontraron registros de auditorías para este paciente' : null
         });
-        
+
     } catch (error) {
         console.error('Error en getHistorialPaciente:', error);
-        res.status(500).json({ 
-            success: false, 
+        res.status(500).json({
+            success: false,
             message: 'Error al obtener historial del paciente',
-            error: error.message 
+            error: error.message
         });
     }
 };
@@ -537,7 +537,7 @@ export const getAuditoriasMedicas = async (req, res) => {
 export const generarExcel = async (req, res) => {
     try {
         const { fecha } = req.body; // formato: YYYY-MM
-        
+
         // Validar formato de fecha
         if (!/^\d{4}-\d{2}$/.test(fecha)) {
             return res.status(400).json({
@@ -606,7 +606,7 @@ export const getVademecum = async (req, res) => {
                    WHERE estado = 1`;
 
         const params = [];
-        
+
         if (search && search.trim()) {
             sql += " AND (nombrecomercial LIKE ? OR nombregenerico LIKE ? OR laboratorio LIKE ?)";
             const searchParam = `%${search.trim()}%`;
@@ -636,7 +636,7 @@ export const getAuditoriaCompleta = async (req, res) => {
     try {
         const { id } = req.params;
         const { tipo } = req.query;
-        
+
         console.log('=== DEBUG AUDITORÍA ===');
         console.log('ID recibido:', id, 'Tipo:', typeof id);
         console.log('Tipo de auditoría:', tipo);
@@ -655,10 +655,10 @@ export const getAuditoriaCompleta = async (req, res) => {
         const sqlVerificar = `SELECT COUNT(*) as existe FROM rec_auditoria WHERE id = ?`;
         console.log('SQL Verificación:', sqlVerificar);
         console.log('Parámetro:', [id]);
-        
+
         const existeResult = await executeQuery(sqlVerificar, [id]);
         console.log('Resultado verificación:', existeResult);
-        
+
         if (existeResult[0].existe === 0) {
             return res.status(404).json({
                 success: false,
@@ -690,13 +690,13 @@ export const getAuditoriaCompleta = async (req, res) => {
             FROM rec_auditoria a
             WHERE a.id = ?
         `;
-        
+
         console.log('SQL Auditoría:', sqlAuditoria);
         console.log('Parámetro:', [id]);
-        
+
         const auditoriaResult = await executeQuery(sqlAuditoria, [id]);
         console.log('Resultado auditoría:', auditoriaResult);
-        
+
         if (!auditoriaResult || auditoriaResult.length === 0) {
             return res.status(404).json({
                 success: false,
@@ -708,7 +708,7 @@ export const getAuditoriaCompleta = async (req, res) => {
                 }
             });
         }
-        
+
         const auditoria = auditoriaResult[0];
         console.log('Auditoría encontrada:', auditoria);
 
@@ -729,18 +729,18 @@ export const getAuditoriaCompleta = async (req, res) => {
             FROM rec_paciente p
             WHERE p.id = ?
         `;
-        
+
         console.log('SQL Paciente:', sqlPaciente);
         console.log('ID Paciente:', auditoria.idpaciente);
-        
+
         const pacienteResult = await executeQuery(sqlPaciente, [auditoria.idpaciente]);
         console.log('Resultado paciente:', pacienteResult);
-        
+
         const paciente = pacienteResult[0] || {};
 
         // 4. OBTENER DATOS DEL MÉDICO Y RECETA PRINCIPAL
         console.log('ID Receta1:', auditoria.idreceta1);
-        
+
         const sqlMedicoReceta = `
           SELECT 
                 t.matricula,
@@ -764,10 +764,10 @@ export const getAuditoriaCompleta = async (req, res) => {
             WHERE r.idreceta = ?
 
         `;
-        
+
         const medicoRecetaResult = await executeQuery(sqlMedicoReceta, [auditoria.idreceta1]);
         console.log('Resultado médico/receta:', medicoRecetaResult);
-        
+
         const medicoReceta = medicoRecetaResult[0] || {};
 
         // 5. DETERMINAR TABLA DE VADEMÉCUM
@@ -789,12 +789,12 @@ export const getAuditoriaCompleta = async (req, res) => {
         // 6. OBTENER MEDICAMENTOS
         let medicamentos = [];
         const recetas = [auditoria.idreceta1, auditoria.idreceta2, auditoria.idreceta3].filter(r => r);
-        
+
         console.log('Recetas a procesar:', recetas);
-        
+
         for (let idReceta of recetas) {
             console.log(`Procesando receta: ${idReceta}`);
-            
+
             const sqlMedicamentos = `
                 SELECT 
                     pm.idreceta,
@@ -824,25 +824,25 @@ export const getAuditoriaCompleta = async (req, res) => {
                 WHERE pm.idreceta = ?
                 ORDER BY pm.nro_orden
             `;
-            
+
             console.log('SQL Medicamentos:', sqlMedicamentos);
-            
+
             try {
                 const medsResult = await executeQuery(sqlMedicamentos, [idReceta]);
                 console.log(`Medicamentos encontrados para receta ${idReceta}:`, medsResult.length);
-                
+
                 const medicamentosConReceta = medsResult.map(med => ({
                     ...med,
                     receta_origen: idReceta
                 }));
-                
+
                 medicamentos = medicamentos.concat(medicamentosConReceta);
             } catch (error) {
                 console.error(`Error en medicamentos para receta ${idReceta}:`, error.message);
                 // Continuar con las otras recetas
             }
         }
-        
+
         console.log('Total medicamentos encontrados:', medicamentos.length);
 
         const medicamentosUnicos = [];
@@ -856,8 +856,8 @@ export const getAuditoriaCompleta = async (req, res) => {
             }
         }
 
-// Reemplazar los medicamentos por los únicos
-medicamentos = medicamentosUnicos;
+        // Reemplazar los medicamentos por los únicos
+        medicamentos = medicamentosUnicos;
 
         // 7. ESTRUCTURAR RESPUESTA
         const responseData = {
@@ -869,7 +869,7 @@ medicamentos = medicamentosUnicos;
             bloqueadaxauditor: auditoria.bloqueadaxauditor,
             botonesDeshabilitados: auditoria.bloqueadaxauditor !== null,
             nota: auditoria.nota || '',
-            
+
             paciente: {
                 id: paciente.id || '',
                 apellido: paciente.apellido || '',
@@ -883,7 +883,7 @@ medicamentos = medicamentosUnicos;
                 peso: paciente.peso || 0,
                 fecnac: paciente.fecnac || ''
             },
-            
+
             medico: {
                 matricula: medicoReceta.matricula || '',
                 nombre: medicoReceta.nombre_completo || '',
@@ -891,19 +891,19 @@ medicamentos = medicamentosUnicos;
                 matricprescr: medicoReceta.matricprescr || '',
                 matricespec_prescr: medicoReceta.matricespec_prescr || ''
             },
-            
+
             obraSocial: {
                 sigla: medicoReceta.obra_social || '',
                 nroAfiliado: medicoReceta.nro_afiliado || '',
                 id: auditoria.idobrasoc
             },
-            
+
             diagnostico: {
                 diagnostico: medicoReceta.diagnostico || '',
                 diagnostico2: medicoReceta.diagnostico2 || '',
                 fechaemision: medicoReceta.fechaemision || ''
             },
-            
+
             medicamentos: medicamentos.map(med => ({
                 idreceta: med.idreceta,
                 receta_origen: med.receta_origen,
@@ -930,7 +930,7 @@ medicamentos = medicamentosUnicos;
                 cod_monodroga: med.cod_monodroga || '',
                 medicamento_key: `${med.idreceta}-${med.nro_orden}`
             })),
-            
+
             metadata: {
                 total_medicamentos: medicamentos.length,
                 medicamentos_aprobados: medicamentos.filter(m => m.estado_auditoria === 1).length,
@@ -955,7 +955,7 @@ medicamentos = medicamentosUnicos;
         console.error('=== ERROR COMPLETO ===');
         console.error('Mensaje:', error.message);
         console.error('Stack:', error.stack);
-        
+
         res.status(500).json({
             success: false,
             message: 'Error al obtener datos de la auditoría',
@@ -974,16 +974,16 @@ export const procesarAuditoria = async (req, res) => {
 
     try {
         const { id } = req.params;
-        const { 
-            chequedos = '', 
-            nochequeados = '', 
-            cobert1 = '50', 
-            cobert2 = '50', 
-            cobert3 = '50', 
+        const {
+            chequedos = '',
+            nochequeados = '',
+            cobert1 = '50',
+            cobert2 = '50',
+            cobert3 = '50',
             cobert4 = '50',
-            cobert2_1 = 'CE', 
-            cobert2_2 = 'CE', 
-            cobert2_3 = 'CE', 
+            cobert2_1 = 'CE',
+            cobert2_2 = 'CE',
+            cobert2_3 = 'CE',
             cobert2_4 = 'CE',
             nota = '',
             estadoIdentidad = 0,
@@ -995,7 +995,7 @@ export const procesarAuditoria = async (req, res) => {
         console.log('Procesando auditoría ID:', id);
         console.log('Body recibido:', req.body);
         console.log('Usuario:', { userId, rol });
-        
+
         connection = await getConnection();
         await connection.beginTransaction();
 
@@ -1018,7 +1018,7 @@ export const procesarAuditoria = async (req, res) => {
             await connection.rollback();
             return res.status(403).json({ success: false, message: 'Auditoría bloqueada por médico auditor' });
         }
-        
+
         if (auditoria.auditado != null) {
             await connection.rollback();
             return res.status(400).json({ success: false, message: 'Esta auditoría ya fue procesada' });
@@ -1051,28 +1051,28 @@ export const procesarAuditoria = async (req, res) => {
         // 4. PROCESAR MEDICAMENTOS APROBADOS → MARCAR PARA FARMALINK
         for (let i = 0; i < medicamentosAprobados.length; i++) {
             const med = medicamentosAprobados[i];
-            
+
             // Validar datos del medicamento antes de procesar
             if (isNaN(med.idReceta) || isNaN(med.nroOrden)) {
                 console.log(`❌ Datos inválidos para medicamento: ${med.original} → idReceta: ${med.idReceta}, nroOrden: ${med.nroOrden}`);
                 continue;
             }
-            
+
             const sqlVerificarMed = `
                 SELECT idrecetamedic, idreceta, nro_orden, estado_auditoria
                 FROM rec_prescrmedicamento 
                 WHERE idreceta = ? AND nro_orden = ?
             `;
             const [medResult] = await connection.execute(sqlVerificarMed, [med.idReceta, med.nroOrden]);
-            
+
             if (medResult.length === 0) {
                 console.log(`❌ Medicamento no encontrado: idreceta=${med.idReceta}, nro_orden=${med.nroOrden}`);
                 continue;
             }
-            
+
             const coberturaKey = ['cobert1', 'cobert2', 'cobert3', 'cobert4'][i] || 'cobert1';
             const tipoCoberturaKey = ['cobert2_1', 'cobert2_2', 'cobert2_3', 'cobert2_4'][i] || 'cobert2_1';
-            
+
             const cobertura = req.body[coberturaKey] || '50';
             const tipoCobertura = req.body[tipoCoberturaKey] || 'CE';
 
@@ -1085,10 +1085,10 @@ export const procesarAuditoria = async (req, res) => {
                     fecha_auditoria = NOW(),
                     id_auditor = ?,
                     observacion = COALESCE(?, observacion),
-                    pendiente_farmalink = 1
+                    /* 🔥 COMENTADO: , pendiente_farmalink = 1 */
                 WHERE idreceta = ? AND nro_orden = ?
             `;
-            
+
             const params = [
                 parseInt(cobertura) || 50,
                 tipoCobertura,
@@ -1097,9 +1097,9 @@ export const procesarAuditoria = async (req, res) => {
                 med.idReceta,
                 med.nroOrden
             ];
-            
+
             const [updateResult] = await connection.execute(sql, params);
-            
+
             if (updateResult.affectedRows > 0) {
                 medicamentosActualizados++;
                 console.log(`✅ Medicamento aprobado: ${med.original} → ${med.idReceta}-${med.nroOrden}`);
@@ -1109,13 +1109,13 @@ export const procesarAuditoria = async (req, res) => {
         // 5. PROCESAR MEDICAMENTOS RECHAZADOS → NO VAN A FARMALINK
         for (let i = 0; i < medicamentosRechazados.length; i++) {
             const med = medicamentosRechazados[i];
-            
+
             // Validar datos del medicamento antes de procesar
             if (isNaN(med.idReceta) || isNaN(med.nroOrden)) {
                 console.log(`❌ Datos inválidos para medicamento rechazado: ${med.original}`);
                 continue;
             }
-            
+
             const sql = `
                 UPDATE rec_prescrmedicamento 
                 SET estado_auditoria = 2,
@@ -1125,7 +1125,7 @@ export const procesarAuditoria = async (req, res) => {
                     pendiente_farmalink = 0
                 WHERE idreceta = ? AND nro_orden = ?
             `;
-            
+
             const params = [
                 userId,
                 nota || 'Medicamento rechazado en auditoría',
@@ -1134,7 +1134,7 @@ export const procesarAuditoria = async (req, res) => {
             ];
 
             const [updateResult] = await connection.execute(sql, params);
-            
+
             if (updateResult.affectedRows > 0) {
                 medicamentosActualizados++;
                 console.log(`✅ Medicamento rechazado: ${med.original} → ${med.idReceta}-${med.nroOrden}`);
@@ -1150,7 +1150,7 @@ export const procesarAuditoria = async (req, res) => {
         }
 
         // 🔥 MARCAR SI NECESITA PROCESAMIENTO FARMALINK
-        const necesitaFarmalink = medicamentosAprobados.length > 0 ? 1 : 0;
+        const necesitaFarmalink = 0; // 🔥 CAMBIO: antes era: medicamentosAprobados.length > 0 ? 1 : 0;
 
         const sqlAuditoria = `
             UPDATE rec_auditoria 
@@ -1158,11 +1158,11 @@ export const procesarAuditoria = async (req, res) => {
                 auditadopor = ?,
                 fecha_origen = NOW(),
                 nota = ?,
-                necesita_farmalink = ?,
+                necesita_farmalink = ?, /* 🔥 Siempre será 0 */
                 bloqueadaxauditor = NULL
             WHERE id = ?
         `;
-        
+
         const auditoriaParams = [
             estadoAuditoria,
             userId,
@@ -1187,7 +1187,7 @@ export const procesarAuditoria = async (req, res) => {
 
         const estadoTexto = {
             1: 'APROBADO',
-            2: 'RECHAZADO', 
+            2: 'RECHAZADO',
             3: 'OBSERVADO'
         };
 
@@ -1196,7 +1196,7 @@ export const procesarAuditoria = async (req, res) => {
         // 8. 🔥 RESPUESTA CON INFORMACIÓN PARA FARMALINK
         res.json({
             success: true,
-            message: `Auditoría procesada correctamente - Estado: ${estadoTexto[estadoAuditoria]}`,
+            message: `Auditoría procesada correctamente - Estado: ${estadoTexto[estadoAuditoria]} (Farmalink deshabilitado)`,
             data: {
                 id: id,
                 estado: estadoAuditoria,
@@ -1222,10 +1222,10 @@ export const procesarAuditoria = async (req, res) => {
         if (connection) {
             await connection.rollback();
         }
-        res.status(500).json({ 
-            success: false, 
-            message: 'Error interno del servidor', 
-            error: error.message 
+        res.status(500).json({
+            success: false,
+            message: 'Error interno del servidor',
+            error: error.message
         });
     } finally {
         if (connection) {
@@ -1265,7 +1265,7 @@ export const enviarMedicoAuditor = async (req, res) => {
 // REVERTIR AUDITORÍA - Revierte el estado de las recetas auditadas
 export const revertirAuditoria = async (req, res) => {
     let connection = null;
-    
+
     try {
         const { id } = req.params;
         const { nota } = req.body;
@@ -1363,7 +1363,7 @@ export const revertirAuditoria = async (req, res) => {
             // Rollback en caso de error
             await connection.rollback();
             console.error('Error en transacción de reversión:', transactionError);
-            
+
             res.status(500).json({
                 success: false,
                 message: 'Error al procesar la reversión'
@@ -1543,7 +1543,7 @@ export const obtenerDetalleAuditoria = async (req, res) => {
 export const generarExcelConDatos = async (req, res) => {
     try {
         const { datos, filtros, timestamp } = req.body;
-        
+
         console.log('Generando Excel con datos:', {
             cantidad_registros: datos?.length || 0,
             filtros: filtros
@@ -1581,7 +1581,7 @@ export const generarExcelConDatos = async (req, res) => {
         const headers = [
             'ID',
             'Apellido',
-            'Nombre', 
+            'Nombre',
             'DNI',
             'Fecha',
             'Médico',
@@ -1594,7 +1594,7 @@ export const generarExcelConDatos = async (req, res) => {
 
         // Agregar encabezados
         const headerRow = worksheet.addRow(headers);
-        
+
         // Estilizar encabezados
         headerRow.font = { bold: true, color: { argb: 'FFFFFF' } };
         headerRow.fill = {
@@ -1602,7 +1602,7 @@ export const generarExcelConDatos = async (req, res) => {
             pattern: 'solid',
             fgColor: { argb: '366092' }
         };
-        
+
         // Agregar bordes a los encabezados
         headerRow.eachCell((cell) => {
             cell.border = {
@@ -1615,10 +1615,10 @@ export const generarExcelConDatos = async (req, res) => {
 
         // Agregar datos
         datos.forEach((auditoria, index) => {
-            const estadoTexto = auditoria.auditado === 1 ? 'APROBADO' : 
-                             auditoria.auditado === 2 ? 'RECHAZADO' : 
-                             auditoria.auditado === 3 ? 'OBSERVADO' : 
-                             auditoria.auditado === null ? 'PENDIENTE' : 'DESCONOCIDO';
+            const estadoTexto = auditoria.auditado === 1 ? 'APROBADO' :
+                auditoria.auditado === 2 ? 'RECHAZADO' :
+                    auditoria.auditado === 3 ? 'OBSERVADO' :
+                        auditoria.auditado === null ? 'PENDIENTE' : 'DESCONOCIDO';
 
             const row = worksheet.addRow([
                 auditoria.id || '',
@@ -1708,16 +1708,16 @@ export const generarExcelConDatos = async (req, res) => {
 
         // Configurar headers de respuesta para descarga
         const nombreArchivo = `auditorias_${new Date().toISOString().slice(0, 10)}.xlsx`;
-        
+
         res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
         res.setHeader('Content-Disposition', `attachment; filename="${nombreArchivo}"`);
         res.setHeader('Access-Control-Expose-Headers', 'Content-Disposition');
 
         // Generar y enviar el archivo Excel
         await workbook.xlsx.write(res);
-        
+
         console.log(`Excel generado exitosamente: ${nombreArchivo} con ${datos.length} registros`);
-        
+
     } catch (error) {
         console.error('Error generando Excel con datos:', error);
         res.status(500).json({
@@ -1734,7 +1734,7 @@ export const generarExcelConDatos = async (req, res) => {
 export const getAuditoriaHistorial = async (req, res) => {
     try {
         const { id } = req.params;
-        
+
         console.log('=== OBTENIENDO AUDITORÍA DESDE HISTORIAL PACIENTE ===');
         console.log('ID auditoría:', id);
 
@@ -1771,16 +1771,16 @@ export const getAuditoriaHistorial = async (req, res) => {
             FROM rec_auditoria a
             WHERE a.id = ?
         `;
-        
+
         const auditoriaResult = await executeQuery(sqlAuditoria, [id]);
-        
+
         if (!auditoriaResult || auditoriaResult.length === 0) {
             return res.status(404).json({
                 success: false,
                 message: 'Auditoría no encontrada'
             });
         }
-        
+
         const auditoria = auditoriaResult[0];
 
         // 2. OBTENER DATOS DEL PACIENTE
@@ -1801,7 +1801,7 @@ export const getAuditoriaHistorial = async (req, res) => {
             FROM rec_paciente p
             WHERE p.id = ?
         `;
-        
+
         const pacienteResult = await executeQuery(sqlPaciente, [auditoria.idpaciente]);
         const paciente = pacienteResult[0] || {};
 
@@ -1818,7 +1818,7 @@ export const getAuditoriaHistorial = async (req, res) => {
             LEFT JOIN tmp_especialistas e ON t.matricula = e.matricula
             WHERE t.matricula = ?
         `;
-        
+
         const medicoResult = await executeQuery(sqlMedico, [auditoria.idprescriptor]);
         const medico = medicoResult[0] || {};
 
@@ -1835,7 +1835,7 @@ export const getAuditoriaHistorial = async (req, res) => {
             INNER JOIN rec_paciente p ON r.idpaciente = p.id
             WHERE r.idreceta = ?
         `;
-        
+
         const obraSocialResult = await executeQuery(sqlObraSocial, [auditoria.idreceta1]);
         const obraSocialData = obraSocialResult[0] || {};
 
@@ -1850,7 +1850,7 @@ export const getAuditoriaHistorial = async (req, res) => {
             FROM user_au au
             WHERE au.id = ?
         `;
-        
+
         const auditorResult = await executeQuery(sqlAuditor, [auditoria.auditadopor]);
         const auditorData = auditorResult[0] || {};
 
@@ -1869,10 +1869,10 @@ export const getAuditoriaHistorial = async (req, res) => {
 
         // 7. 🔥 OBTENER MEDICAMENTOS CON ESTADOS DE LOS 6 MESES (CORREGIDO)
         let medicamentos = [];
-        
+
         // Solo hay 3 recetas, pero cada una puede cubrir hasta 6 meses
         const recetas = [auditoria.idreceta1, auditoria.idreceta2, auditoria.idreceta3].filter(r => r);
-        
+
         for (let idReceta of recetas) {
             // 🔥 CONSULTA CORREGIDA - Solo usar las 3 recetas que existen
             const sqlMedicamentos = `
@@ -1943,14 +1943,14 @@ export const getAuditoriaHistorial = async (req, res) => {
                 WHERE pm1.idreceta = ?
                 ORDER BY pm1.nro_orden
             `;
-            
+
             try {
                 const medsResult = await executeQuery(sqlMedicamentos, [idReceta]);
                 const medicamentosConReceta = medsResult.map(med => ({
                     ...med,
                     receta_origen: idReceta,
                     medicamento_key: `${med.idreceta}-${med.nro_orden}`,
-                    
+
                     // 🔥 AGREGAR ESTADOS DE MESES INDIVIDUALES
                     estado_mes_1: med.estado_auditoria1,
                     estado_mes_2: med.estado_auditoria2,
@@ -1958,15 +1958,15 @@ export const getAuditoriaHistorial = async (req, res) => {
                     estado_mes_4: med.estado_auditoria4,
                     estado_mes_5: med.estado_auditoria5,
                     estado_mes_6: med.estado_auditoria6,
-                    
+
                     // Estado principal del medicamento (primer mes)
                     estado_auditoria: med.estado_auditoria1
                 }));
-                
+
                 medicamentos = medicamentos.concat(medicamentosConReceta);
             } catch (error) {
                 console.error(`Error en medicamentos para receta ${idReceta}:`, error.message);
-                
+
                 // 🔥 FALLBACK MEJORADO - Usar consulta simple con lógica de meses
                 const sqlSimple = `
                     SELECT 
@@ -1998,13 +1998,13 @@ export const getAuditoriaHistorial = async (req, res) => {
                     WHERE pm.idreceta = ?
                     ORDER BY pm.nro_orden
                 `;
-                
+
                 const medsSimpleResult = await executeQuery(sqlSimple, [idReceta]);
                 const medicamentosSimples = medsSimpleResult.map(med => ({
                     ...med,
                     receta_origen: idReceta,
                     medicamento_key: `${med.idreceta}-${med.nro_orden}`,
-                    
+
                     // 🔥 DISTRIBUIR ESTADO SEGÚN cantmeses DE LA AUDITORÍA
                     estado_mes_1: med.estado_auditoria,
                     estado_mes_2: auditoria.cantmeses >= 2 ? med.estado_auditoria : null,
@@ -2013,7 +2013,7 @@ export const getAuditoriaHistorial = async (req, res) => {
                     estado_mes_5: auditoria.cantmeses >= 5 ? med.estado_auditoria : null,
                     estado_mes_6: auditoria.cantmeses >= 6 ? med.estado_auditoria : null
                 }));
-                
+
                 medicamentos = medicamentos.concat(medicamentosSimples);
             }
         }
@@ -2027,11 +2027,11 @@ export const getAuditoriaHistorial = async (req, res) => {
             auditado: auditoria.auditado,
             estado_texto: auditoria.estado_texto,
             nota: auditoria.nota || '',
-            
+
             // Indicador de que es solo lectura desde historial
             readonly: true,
             fromHistorial: true,
-            
+
             paciente: {
                 id: paciente.id || '',
                 apellido: paciente.apellido || '',
@@ -2046,31 +2046,31 @@ export const getAuditoriaHistorial = async (req, res) => {
                 fecnac: paciente.fecnac || '',
                 fecha_nacimiento: paciente.fecha_nacimiento || ''
             },
-            
+
             medico: {
                 matricula: medico.matricula || '',
                 nombre: medico.nombre_completo || '',
                 especialidad: medico.especialidad || ''
             },
-            
+
             obraSocial: {
                 sigla: obraSocialData.obra_social || '',
                 nroAfiliado: obraSocialData.nro_afiliado || ''
             },
-            
+
             diagnostico: {
                 diagnostico: obraSocialData.diagnostico || '',
                 diagnostico2: obraSocialData.diagnostico2 || '',
                 fechaemision: obraSocialData.fechaemision || ''
             },
-            
+
             auditor: {
                 nombre: auditorData.auditor_nombre || 'No especificado',
                 fecha_auditoria: auditorData.fecha_auditoria || auditoria.fecha_origen
             },
-            
+
             medicamentos: medicamentos,
-            
+
             metadata: {
                 total_medicamentos: medicamentos.length,
                 medicamentos_aprobados: medicamentos.filter(m => m.estado_auditoria === 1).length,
@@ -2098,7 +2098,7 @@ export const getAuditoriaHistorial = async (req, res) => {
         console.error('=== ERROR EN AUDITORÍA HISTORIAL ===');
         console.error('Mensaje:', error.message);
         console.error('Stack:', error.stack);
-        
+
         res.status(500).json({
             success: false,
             message: 'Error al obtener datos de la auditoría desde historial',
@@ -2186,11 +2186,11 @@ export const getHistoricosPendientes = async (req, res) => {
 export const exportarHistorialPaciente = async (req, res) => {
     try {
         const { dni, fechaDesde, fechaHasta } = req.body;
-        
+
         if (!dni) {
-            return res.status(400).json({ 
-                success: false, 
-                message: 'DNI es requerido' 
+            return res.status(400).json({
+                success: false,
+                message: 'DNI es requerido'
             });
         }
 
@@ -2223,33 +2223,33 @@ export const exportarHistorialPaciente = async (req, res) => {
             WHERE p.dni = ?
             AND a.auditado IS NOT NULL
         `;
-        
+
         const params = [dni];
-        
+
         if (fechaDesde) {
             query += ' AND DATE(a.fecha_origen) >= ?';
             params.push(fechaDesde);
         }
-        
+
         if (fechaHasta) {
             query += ' AND DATE(a.fecha_origen) <= ?';
             params.push(fechaHasta);
         }
-        
+
         query += ' ORDER BY a.fecha_origen DESC, pm.idrecetamedic DESC';
-        
+
         const medicamentos = await executeQuery(query, params);
-        
+
         // Obtener datos del paciente
         const [pacienteData] = await executeQuery(
             'SELECT * FROM rec_paciente WHERE dni = ? LIMIT 1',
             [dni]
         );
-        
+
         // Crear Excel con los datos
         const workbook = new ExcelJS.Workbook();
         const worksheet = workbook.addWorksheet('Historial Paciente');
-        
+
         // Información del paciente
         const paciente = pacienteData;
         worksheet.addRow(['HISTORIAL DE PACIENTE']);
@@ -2258,7 +2258,7 @@ export const exportarHistorialPaciente = async (req, res) => {
         worksheet.addRow(['Paciente:', paciente ? `${paciente.apellido} ${paciente.nombre}` : 'N/A']);
         worksheet.addRow(['Edad:', paciente ? `${calculateAge(paciente.fecnac)} años` : 'N/A']);
         worksheet.addRow(['']);
-        
+
         // Encabezados de la tabla
         const headers = [
             'Fecha',
@@ -2272,9 +2272,9 @@ export const exportarHistorialPaciente = async (req, res) => {
             'Cobertura',
             'Estado'
         ];
-        
+
         worksheet.addRow(headers);
-        
+
         // Agregar datos
         medicamentos.forEach(med => {
             worksheet.addRow([
@@ -2290,7 +2290,7 @@ export const exportarHistorialPaciente = async (req, res) => {
                 med.estado_medicamento
             ]);
         });
-        
+
         // Estilizar encabezados
         worksheet.getRow(7).font = { bold: true };
         worksheet.getRow(7).fill = {
@@ -2298,7 +2298,7 @@ export const exportarHistorialPaciente = async (req, res) => {
             pattern: 'solid',
             fgColor: { argb: 'FFE0E0E0' }
         };
-        
+
         // Ajustar anchos de columna
         worksheet.columns = [
             { width: 12 }, { width: 20 }, { width: 30 },
@@ -2306,19 +2306,19 @@ export const exportarHistorialPaciente = async (req, res) => {
             { width: 10 }, { width: 15 }, { width: 10 },
             { width: 15 }
         ];
-        
+
         // Generar archivo
         res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
         res.setHeader('Content-Disposition', `attachment; filename=historial_paciente_${dni}.xlsx`);
-        
+
         await workbook.xlsx.write(res);
         res.end();
-        
+
     } catch (error) {
         console.error('Error exportando historial:', error);
-        res.status(500).json({ 
-            success: false, 
-            message: 'Error al generar el archivo Excel' 
+        res.status(500).json({
+            success: false,
+            message: 'Error al generar el archivo Excel'
         });
     }
 };
@@ -2340,13 +2340,13 @@ export async function generarPDFDesdeHTML(htmlContent) {
         headless: true,
         args: ['--no-sandbox', '--disable-setuid-sandbox']
     });
-    
+
     const page = await browser.newPage();
-    
+
     await page.setContent(htmlContent, {
         waitUntil: 'networkidle0'
     });
-    
+
     const pdfBuffer = await page.pdf({
         format: 'A4',
         landscape: true,
@@ -2358,9 +2358,9 @@ export async function generarPDFDesdeHTML(htmlContent) {
             right: '10mm'
         }
     });
-    
+
     await browser.close();
-    
+
     return pdfBuffer;
 }
 
@@ -2368,7 +2368,7 @@ export async function guardarArchivo(ruta, buffer) {
     // Crear directorio si no existe
     const dir = path.dirname(ruta);
     await fs.mkdir(dir, { recursive: true });
-    
+
     // Guardar archivo
     await fs.writeFile(ruta, buffer);
 }
@@ -2387,7 +2387,7 @@ export function generarHTMLReceta(datos) {
                     <td colspan="6" width="100%"><hr style="border: 1px solid #000;" /></td>
                 </tr>  
                 <tr>
-                    <td colspan="2" width="25%"><img src="https://cpce.recetasalud.ar/logo/${datos.logoHeader}" width="150px"></td>
+                    <td colspan="2" width="25%"><img src="https://test1.recetasalud.ar/logo/${datos.logoHeader}" width="150px"></td>
                     <td colspan="2" width="50%"><h2>Nro: ${datos.numeroDisplay}</h2>${datos.autorizacionEspecialInfo}</td>
                     <td colspan="2" width="25%" align="right"><h2>Fecha: ${datos.fecha}</h2></td>
                 </tr>
@@ -2509,7 +2509,7 @@ export function generarHTMLRecetaRechazada(datos) {
                     <td colspan="6" width="100%"><hr style="border: 1px solid #000;" /></td>
                 </tr>  
                 <tr>
-                    <td colspan="2" width="15%"><img src="https://cpce.recetasalud.ar/logo/${datos.logoHeader}" width="180px"></td>
+                    <td colspan="2" width="15%"><img src="https://test1.recetasalud.ar/logo/${datos.logoHeader}" width="180px"></td>
                     <td colspan="2" width="35%"></td>
                     <td colspan="2" width="40%" align="right"></td>
                 </tr>
@@ -2578,45 +2578,45 @@ export async function enviarEmailRecetas(auditoria, htmlContent, idauditoria) {
 // Función principal para generar PDF
 export const generarPDF = async (req, res) => {
     let connection = null;
-    
+
     try {
         const { id } = req.params;
         const { estado = "0" } = req.body;
-        
+
         console.log(`Iniciando generación de PDF para auditoría ${id}`);
-        
+
         connection = await getConnection();
-        
+
         // 1. Obtener datos de la auditoría
         const sqlAuditoria = `SELECT * FROM rec_auditoria WHERE id = ?`;
         const [auditoriaResult] = await connection.execute(sqlAuditoria, [id]);
-        
+
         if (!auditoriaResult || auditoriaResult.length === 0) {
-            return res.status(404).json({ 
-                success: false, 
-                message: 'Auditoría no encontrada' 
+            return res.status(404).json({
+                success: false,
+                message: 'Auditoría no encontrada'
             });
         }
-        
+
         const auditoria = auditoriaResult[0];
         const ciclo = auditoria.cantmeses;
-        
+
         // 2. Generar HTML del PDF
         let htmlContent = '';
         let medicamentosAutorizados = 0;
-        
+
         // Generar QR
         const nombreArchivo = `audinro${id}.pdf`;
-        const urlPDF = `https://cpce.recetasalud.ar/audi/tmp/${nombreArchivo}`;
+        const urlPDF = `https://test1.recetasalud.ar/audi/tmp/${nombreArchivo}`;
         const qrCodeDataURL = await QRCode.toDataURL(urlPDF);
-        
+
         // Procesar cada receta del ciclo
         for (let i = 0; i < ciclo; i++) {
             const nroReceta = `idreceta${i + 1}`;
             const idreceta = auditoria[nroReceta];
-            
+
             if (!idreceta) continue;
-            
+
             // Obtener datos de la receta
             const sqlReceta = `
                 SELECT r.fechaemision, r.diagnostico, r.idobrasocafiliado,
@@ -2630,15 +2630,15 @@ export const generarPDF = async (req, res) => {
                  WHERE r.idreceta = ?
             `;
             const [recetaResult] = await connection.execute(sqlReceta, [idreceta]);
-            
+
             if (!recetaResult || recetaResult.length === 0) continue;
-            
+
             const receta = recetaResult[0];
-            
+
             // Configurar tabla según obra social
             let tablavadem = 'vademecum';
             let logoHeader = 'cmpc.jpg';
-            
+
             switch (receta.idobrasocafiliado) {
                 case 156:
                     tablavadem = 'vad_muni';
@@ -2649,7 +2649,7 @@ export const generarPDF = async (req, res) => {
                     logoHeader = '20.jpg';
                     break;
             }
-            
+
             // Obtener medicamentos
             const sqlMedicamentos = `
                 SELECT p.idreceta, p.nro_orden, 
@@ -2667,9 +2667,9 @@ export const generarPDF = async (req, res) => {
               ORDER BY p.nro_orden
             `;
             const [medicamentosResult] = await connection.execute(sqlMedicamentos, [idreceta]);
-            
+
             if (!medicamentosResult || medicamentosResult.length === 0) continue;
-            
+
             // Procesar identidad del paciente
             let identidadPaciente = `<b>${receta.apellido} ${receta.nombre}</b> DNI: ${receta.dni}`;
             if (estado == "1") {
@@ -2677,15 +2677,15 @@ export const generarPDF = async (req, res) => {
                 const fechaFormateada = fechaNac.toLocaleDateString('es-ES').replace(/\//g, '');
                 identidadPaciente = `${receta.sexo}${receta.nombre.substring(0, 2).toUpperCase()}${receta.apellido.substring(0, 2).toUpperCase()}${fechaFormateada}`;
             }
-            
+
             // Generar HTML para cada medicamento
             for (const medicamento of medicamentosResult) {
                 if (medicamento.estado_auditoria == 1) {
                     medicamentosAutorizados++;
-                    
+
                     const numeroReceta = medicamento.numero_farmalink || medicamento.idreceta;
                     const numeroDisplay = `${numeroReceta}-${medicamento.nro_orden}`;
-                    
+
                     let autorizacionEspecialInfo = '';
                     if (medicamento.autorizacion_especial) {
                         autorizacionEspecialInfo = `
@@ -2694,10 +2694,10 @@ export const generarPDF = async (req, res) => {
                             </div>
                         `;
                     }
-                    
+
                     const codigoBarras = await generarCodigoBarras(numeroDisplay);
                     const codigoBarrasAfiliado = await generarCodigoBarras(receta.nromatriculadoc);
-                    
+
                     htmlContent += generarHTMLReceta({
                         logoHeader,
                         numeroDisplay,
@@ -2717,7 +2717,7 @@ export const generarPDF = async (req, res) => {
                         codigoBarrasAfiliado,
                         fechaVence: medicamento.fechavto
                     });
-                    
+
                     // Duplicado para tipo_venta 3
                     if (medicamento.tipo_venta == 3) {
                         htmlContent += generarHTMLRecetaDuplicado({
@@ -2753,31 +2753,31 @@ export const generarPDF = async (req, res) => {
                 }
             }
         }
-        
+
         if (!htmlContent) {
             return res.status(400).json({
                 success: false,
                 message: 'No hay contenido autorizado para generar el PDF'
             });
         }
-        
+
         // 3. Generar PDF
         const pdfBuffer = await generarPDFDesdeHTML(htmlContent);
-        
+
         // 4. Guardar PDF
-        const rutaLocal = `/var/www/cpce.recetasalud.ar/audi/tmp/`;
+        const rutaLocal = `/var/www/test1.recetasalud.ar/audi/tmp/`; // 🔥 CAMBIO AQUÍ
         const rutaAzure = `/mnt/fscpcess01/prod/`;
-        
+
         // Crear directorios si no existen
-        await fs.mkdir(rutaLocal, { recursive: true }).catch(() => {});
-        await fs.mkdir(rutaAzure, { recursive: true }).catch(() => {});
-        
+        await fs.mkdir(rutaLocal, { recursive: true }).catch(() => { });
+        await fs.mkdir(rutaAzure, { recursive: true }).catch(() => { });
+
         // Guardar en ambas ubicaciones
         await fs.writeFile(path.join(rutaLocal, nombreArchivo), pdfBuffer);
         await fs.writeFile(path.join(rutaAzure, nombreArchivo), pdfBuffer);
-        
+
         console.log(`PDF generado exitosamente: ${nombreArchivo}`);
-        
+
         res.json({
             success: true,
             message: 'PDF generado correctamente',
@@ -2787,7 +2787,7 @@ export const generarPDF = async (req, res) => {
                 medicamentosAutorizados
             }
         });
-        
+
     } catch (error) {
         console.error('Error generando PDF:', error);
         res.status(500).json({
@@ -2806,7 +2806,7 @@ export const generarPDF = async (req, res) => {
 export const getAuditoriaHistorica = async (req, res) => {
     try {
         const { id } = req.params;
-        
+
         console.log('=== OBTENIENDO AUDITORÍA HISTÓRICA (SOLO LECTURA) ===');
         console.log('ID auditoría:', id);
 
@@ -2843,16 +2843,16 @@ export const getAuditoriaHistorica = async (req, res) => {
             LEFT JOIN user_au au ON a.auditadopor = au.id
             WHERE a.id = ? AND a.auditado IS NOT NULL AND (a.estado IS NULL OR a.estado != 1)
         `;
-        
+
         const auditoriaResult = await executeQuery(sqlAuditoria, [id]);
-        
+
         if (!auditoriaResult || auditoriaResult.length === 0) {
             return res.status(404).json({
                 success: false,
                 message: 'Auditoría histórica no encontrada o no está procesada'
             });
         }
-        
+
         const auditoria = auditoriaResult[0];
         console.log('Auditoría histórica encontrada:', auditoria);
 
@@ -2874,7 +2874,7 @@ export const getAuditoriaHistorica = async (req, res) => {
             FROM rec_paciente p
             WHERE p.id = ?
         `;
-        
+
         const pacienteResult = await executeQuery(sqlPaciente, [auditoria.idpaciente]);
         const paciente = pacienteResult[0] || {};
 
@@ -2891,7 +2891,7 @@ export const getAuditoriaHistorica = async (req, res) => {
             LEFT JOIN tmp_especialistas e ON t.matricula = e.matricula
             WHERE t.matricula = ?
         `;
-        
+
         const medicoResult = await executeQuery(sqlMedico, [auditoria.idprescriptor]);
         const medico = medicoResult[0] || {};
 
@@ -2908,13 +2908,13 @@ export const getAuditoriaHistorica = async (req, res) => {
             INNER JOIN rec_paciente p ON r.idpaciente = p.id
             WHERE r.idreceta = ?
         `;
-        
+
         const obraSocialResult = await executeQuery(sqlObraSocial, [auditoria.idreceta1]);
         const obraSocialData = obraSocialResult[0] || {};
 
         // 5. DETERMINAR TABLA DE VADEMÉCUM SEGÚN OBRA SOCIAL
         let tablaVademecum = 'vademecum';
-        
+
         switch (parseInt(auditoria.idobrasoc)) {
             case 156:
                 tablaVademecum = 'vad_muni';
@@ -2929,7 +2929,7 @@ export const getAuditoriaHistorica = async (req, res) => {
         // 6. OBTENER MEDICAMENTOS AGRUPADOS POR RECETA
         const recetas = {};
         const recetasIds = [auditoria.idreceta1, auditoria.idreceta2, auditoria.idreceta3].filter(r => r);
-        
+
         for (let idReceta of recetasIds) {
             const sqlMedicamentos = `
                 SELECT 
@@ -2960,10 +2960,10 @@ export const getAuditoriaHistorica = async (req, res) => {
                 WHERE pm.idreceta = ?
                 ORDER BY pm.nro_orden
             `;
-            
+
             try {
                 const medicamentosResult = await executeQuery(sqlMedicamentos, [idReceta]);
-                
+
                 if (medicamentosResult.length > 0) {
                     recetas[idReceta] = {
                         nroreceta: idReceta,
@@ -3011,11 +3011,11 @@ export const getAuditoriaHistorica = async (req, res) => {
                 cantmeses: auditoria.cantmeses,
                 auditado: auditoria.auditado,
                 nota: auditoria.nota || '',
-                estado_texto: auditoria.auditado === 1 ? 'APROBADO' : 
-                            auditoria.auditado === 2 ? 'RECHAZADO' : 
-                            auditoria.auditado === 3 ? 'OBSERVADO' : 'PENDIENTE'
+                estado_texto: auditoria.auditado === 1 ? 'APROBADO' :
+                    auditoria.auditado === 2 ? 'RECHAZADO' :
+                        auditoria.auditado === 3 ? 'OBSERVADO' : 'PENDIENTE'
             },
-            
+
             paciente: {
                 apellido: paciente.apellido || '',
                 nombre: paciente.nombre || '',
@@ -3029,30 +3029,30 @@ export const getAuditoriaHistorica = async (req, res) => {
                 peso: paciente.peso || 0,
                 fecnac: paciente.fecnac || ''
             },
-            
+
             medico: {
                 nombre: medico.nombre_completo || '',
                 matricula: medico.matricula || '',
                 especialidad: medico.especialidad || ''
             },
-            
+
             obra_social: {
                 nombre: obraSocialData.obra_social || '',
                 nro_afiliado: obraSocialData.nro_afiliado || ''
             },
-            
+
             diagnostico: {
                 principal: obraSocialData.diagnostico || '',
                 secundario: obraSocialData.diagnostico2 || '',
                 fecha_emision: obraSocialData.fechaemision || ''
             },
-            
+
             auditor: auditoria.auditor_nombre || 'No especificado',
-            
+
             recetas: recetas,
-            
+
             estadisticas: estadisticas,
-            
+
             metadata: {
                 readonly: true,
                 tipo: 'historica',
@@ -3076,7 +3076,7 @@ export const getAuditoriaHistorica = async (req, res) => {
         console.error('=== ERROR EN AUDITORÍA HISTÓRICA ===');
         console.error('Mensaje:', error.message);
         console.error('Stack:', error.stack);
-        
+
         res.status(500).json({
             success: false,
             message: 'Error al obtener la auditoría histórica',
@@ -3093,13 +3093,13 @@ export const procesarFarmalink = async (req, res) => {
         switch (accion) {
             case 'iniciar':
                 return await iniciarProcesamientoFarmalink(req, res);
-            
+
             case 'procesar_item':
                 return await procesarItemFarmalink(req, res);
-            
+
             case 'finalizar_cronicos':
                 return await finalizarCronicos(req, res);
-            
+
             default:
                 return res.status(400).json({
                     success: false,
@@ -3132,7 +3132,7 @@ const FL_CONFIG = {
 async function obtenerTokenFarmalink(scope) {
     try {
         const credentials = Buffer.from(`${FL_CONFIG.CLIENT_ID}:${FL_CONFIG.CLIENT_SECRET}`).toString('base64');
-        
+
         const response = await fetch(`${FL_CONFIG.BASE_URL}/api/oauth/token/generate`, {
             method: 'POST',
             headers: {
@@ -3193,7 +3193,7 @@ function generarNumeroFarmalink(idreceta, nroOrden) {
     const prefijo = FL_CONFIG.RANGE; // 9339
     const base11 = prefijo + String(idreceta).padStart(7, '0');
     const base12 = base11 + String(nroOrden);
-    
+
     // Calcular dígito de control EAN-13
     const digits = base12.split('').map(Number);
     let sum = 0;
@@ -3201,14 +3201,14 @@ function generarNumeroFarmalink(idreceta, nroOrden) {
         sum += digits[i] * (i % 2 === 0 ? 1 : 3);
     }
     const checkDigit = (10 - (sum % 10)) % 10;
-    
+
     return base12 + checkDigit;
 }
 
 // 🔥 FUNCIÓN: Procesar medicamento individual
 async function procesarItemFarmalink(req, res) {
     let connection = null;
-    
+
     try {
         const { item, tokenReceta, tokenAfiliado, idreceta, nroOrden } = req.body;
 
@@ -3226,7 +3226,7 @@ async function procesarItemFarmalink(req, res) {
         // Si no vienen por parámetros directos, parsear del item
         if (!finalIdReceta || !finalNroOrden) {
             const [itemIdReceta, itemNroOrden] = item.split('_');
-            
+
             if (!itemIdReceta || !itemNroOrden) {
                 return res.json({
                     success: false,
@@ -3319,7 +3319,7 @@ async function procesarItemFarmalink(req, res) {
 async function procesarMedicamentoNormal(med, tokenReceta, connection) {
     try {
         const numeroFarmalink = generarNumeroFarmalink(med.idreceta, med.nro_orden);
-        
+
         console.log(`📋 Creando RE normal: ${numeroFarmalink} para ${med.idreceta}-${med.nro_orden}`);
 
         // 🔥 CORRECCIÓN: Validar y limpiar matrícula del prescriptor
@@ -3393,7 +3393,7 @@ async function procesarMedicamentoNormal(med, tokenReceta, connection) {
             );
 
             console.log(`✅ RE normal OK: ${numeroFarmalink} (Actualización BD: ${updateResult.affectedRows} filas)`);
-            
+
             return {
                 success: true,
                 message: `Receta ${numeroFarmalink} OK`,
@@ -3420,12 +3420,12 @@ async function procesarMedicamentoNormal(med, tokenReceta, connection) {
 async function procesarMedicamentoCronico(med, tokenReceta, tokenAfiliado, connection) {
     try {
         const numeroFarmalink = generarNumeroFarmalink(med.idreceta, med.nro_orden);
-        
+
         console.log(`🔄 Creando RE crónica: ${numeroFarmalink} para ${med.idreceta}-${med.nro_orden}`);
 
         // 1. Crear RE individual (igual que normal)
         const resultado = await procesarMedicamentoNormal(med, tokenReceta, connection);
-        
+
         if (!resultado.success) {
             return resultado;
         }
@@ -3478,10 +3478,10 @@ async function enviarAFarmalink(endpoint, payload, token) {
         });
 
         const responseText = await response.text();
-        
+
         try {
             const responseData = JSON.parse(responseText);
-            
+
             // Verificar respuesta según tipo de endpoint
             if (endpoint.includes('altaReceta')) {
                 const codigo = responseData?.altaRecetaElectRs?.respuesta?.codigo;
@@ -3517,7 +3517,7 @@ async function enviarAFarmalink(endpoint, payload, token) {
 // 🔥 FUNCIÓN: Finalizar crónicos (crear AE agrupadas)
 async function finalizarCronicos(req, res) {
     let connection = null;
-    
+
     try {
         const { tokenAfiliado } = req.body;
 
@@ -3628,17 +3628,17 @@ async function finalizarCronicos(req, res) {
             errores: errores
         });
 
-    }  catch (error) {
-       console.error('❌ Error finalizando crónicos:', error);
-       res.json({
-           success: false,
-           message: 'Error al finalizar crónicos: ' + error.message
-       });
-   } finally {
-       if (connection) {
-           connection.release();
-       }
-   }
+    } catch (error) {
+        console.error('❌ Error finalizando crónicos:', error);
+        res.json({
+            success: false,
+            message: 'Error al finalizar crónicos: ' + error.message
+        });
+    } finally {
+        if (connection) {
+            connection.release();
+        }
+    }
 }
 
 // 🔥 FUNCIÓN: Verificar estado de procesamiento Farmalink
@@ -3683,8 +3683,8 @@ export const verificarEstadoFarmalink = async (req, res) => {
             id: `${med.idreceta}-${med.nro_orden}`,
             nombre: med.nombre_comercial || 'Sin nombre',
             monodroga: med.monodroga || 'Sin monodroga',
-            estado_farmalink: med.pendiente_farmalink === 1 ? 'PENDIENTE' : 
-                            med.numero_farmalink ? 'PROCESADO' : 'NO REQUIERE',
+            estado_farmalink: med.pendiente_farmalink === 1 ? 'PENDIENTE' :
+                med.numero_farmalink ? 'PROCESADO' : 'NO REQUIERE',
             numero_farmalink: med.numero_farmalink || null,
             autorizacion_especial: med.autorizacion_especial || null
         }));
@@ -3733,7 +3733,7 @@ export const reprocesarFarmalink = async (req, res) => {
 
         let sqlConditions = [];
         let params = [];
-        
+
         for (let i = 0; i < medicamentos.length; i++) {
             const [idreceta, nroOrden] = medicamentos[i].split('-');
             sqlConditions.push('(idreceta = ? AND nro_orden = ?)');
@@ -3849,25 +3849,25 @@ export const getLogFarmalink = async (req, res) => {
 export const descargarPDF = async (req, res) => {
     try {
         const { id } = req.params;
-        
+
         const nombreArchivo = `audinro${id}.pdf`;
         const rutaArchivo = `/var/www/cpce.recetasalud.ar/audi/tmp/${nombreArchivo}`;
-        
+
         try {
             const pdfBuffer = await fs.readFile(rutaArchivo);
-            
+
             res.setHeader('Content-Type', 'application/pdf');
             res.setHeader('Content-Disposition', `attachment; filename="${nombreArchivo}"`);
             res.setHeader('Content-Length', pdfBuffer.length);
-            
+
             res.send(pdfBuffer);
-            
+
         } catch (fileError) {
             // Si el archivo no existe, intentar generarlo
             console.log('PDF no encontrado, generando...');
             return generarPDF(req, res);
         }
-        
+
     } catch (error) {
         console.error('Error descargando PDF:', error);
         res.status(500).json({
@@ -3876,24 +3876,24 @@ export const descargarPDF = async (req, res) => {
             error: error.message
         });
     }
- }
+}
 
 
 // REENVIAR EMAIL DE AUDITORÍA PROCESADA
-    
+
 
 // FUNCIÓN CORREGIDA PARA USAR TUS VARIABLES DE ENTORNO EXISTENTES
 async function enviarEmailSimplificado(htmlContent, opciones) {
     try {
         console.log(`📧 Enviando email a: ${opciones.destinatario}`);
-        
+
         // CORRECCIÓN: Usar las variables de entorno que ya tienes configuradas
         const smtpUser = process.env.SMTP_USERNAME || process.env.SMTP_USER;
         const smtpPass = process.env.SMTP_PASSWORD || process.env.SMTP_PASS;
         const smtpHost = process.env.SMTP_HOST;
         const smtpPort = process.env.SMTP_PORT;
         const smtpFrom = process.env.SMTP_SENDER || process.env.SMTP_FROM;
-        
+
         // Verificar que las variables de entorno estén configuradas
         if (!smtpUser || !smtpPass) {
             console.error('Variables SMTP encontradas:', {
@@ -3905,7 +3905,7 @@ async function enviarEmailSimplificado(htmlContent, opciones) {
             });
             throw new Error('Variables de entorno SMTP no configuradas. Revisa SMTP_USERNAME y SMTP_PASSWORD en .env.production');
         }
-        
+
         // Configuración del transporter adaptada a tus variables
         const transporterConfig = {
             host: smtpHost?.replace(/"/g, '') || 'email-smtp.us-east-1.amazonaws.com',
@@ -3920,7 +3920,7 @@ async function enviarEmailSimplificado(htmlContent, opciones) {
                 rejectUnauthorized: false
             }
         };
-        
+
         console.log('Configuración SMTP:', {
             host: transporterConfig.host,
             port: transporterConfig.port,
@@ -3928,9 +3928,9 @@ async function enviarEmailSimplificado(htmlContent, opciones) {
             user: transporterConfig.auth.user,
             hasPassword: !!transporterConfig.auth.pass
         });
-        
+
         const transporter = nodemailer.createTransport(transporterConfig);
-        
+
         // Verificar conexión SMTP
         try {
             await transporter.verify();
@@ -3940,7 +3940,7 @@ async function enviarEmailSimplificado(htmlContent, opciones) {
             // No fallar aquí, intentar enviar de todas formas
             console.log('⚠️ Continuando sin verificación...');
         }
-        
+
         // Configurar opciones del email
         const mailOptions = {
             from: smtpFrom?.replace(/"/g, '') || `"${process.env.SMTP_SENDER_NAME?.replace(/"/g, '') || 'Auditoría Médica'}" <${smtpUser?.replace(/"/g, '')}>`,
@@ -3949,7 +3949,7 @@ async function enviarEmailSimplificado(htmlContent, opciones) {
             html: htmlContent,
             attachments: []
         };
-        
+
         // Adjuntar PDF si es necesario
         if (opciones.adjuntarPDF && opciones.rutaPDF) {
             try {
@@ -3964,7 +3964,7 @@ async function enviarEmailSimplificado(htmlContent, opciones) {
                 console.warn(`⚠️ No se pudo adjuntar el PDF: ${fileError.message}`);
             }
         }
-        
+
         // Enviar email
         console.log('Enviando email con opciones:', {
             from: mailOptions.from,
@@ -3972,18 +3972,18 @@ async function enviarEmailSimplificado(htmlContent, opciones) {
             subject: mailOptions.subject,
             attachments: mailOptions.attachments.length
         });
-        
+
         const info = await transporter.sendMail(mailOptions);
-        
+
         console.log(`✅ Email enviado exitosamente: ${info.messageId}`);
-        
+
         return {
             success: true,
             messageId: info.messageId,
             destinatario: opciones.destinatario,
             response: info.response
         };
-        
+
     } catch (error) {
         console.error('❌ Error enviando email:', error);
         return {
@@ -3995,14 +3995,14 @@ async function enviarEmailSimplificado(htmlContent, opciones) {
 
 export const reenviarEmail = async (req, res) => {
     let connection = null;
-    
+
     try {
         const { id } = req.params;
-        
+
         console.log(`🔔 Iniciando reenvío de email para auditoría ${id}`);
-        
+
         connection = await getConnection();
-        
+
         // 1. VERIFICAR QUE LA AUDITORÍA EXISTE Y ESTÁ PROCESADA
         const sqlVerificar = `
             SELECT 
@@ -4018,18 +4018,18 @@ export const reenviarEmail = async (req, res) => {
             INNER JOIN rec_paciente p ON a.idpaciente = p.id
             WHERE a.id = ? AND a.auditado IS NOT NULL
         `;
-        
+
         const [auditoriaResult] = await connection.execute(sqlVerificar, [id]);
-        
+
         if (!auditoriaResult || auditoriaResult.length === 0) {
             return res.status(404).json({
                 success: false,
                 message: 'Auditoría no encontrada o no está procesada'
             });
         }
-        
+
         const auditoria = auditoriaResult[0];
-        
+
         // Verificar que el paciente tenga email
         if (!auditoria.email || auditoria.email.trim() === '') {
             return res.status(400).json({
@@ -4037,14 +4037,14 @@ export const reenviarEmail = async (req, res) => {
                 message: 'El paciente no tiene email registrado'
             });
         }
-        
+
         console.log(`📧 Email del paciente: ${auditoria.email}`);
-        
+
         // 2. VERIFICAR PDF
         const nombreArchivo = `audinro${id}.pdf`;
         const rutaArchivo = `/var/www/cpce.recetasalud.ar/audi/tmp/${nombreArchivo}`;
-        const urlPDF = `https://cpce.recetasalud.ar/audi/tmp/${nombreArchivo}`;
-        
+        const urlPDF = `https://test1.recetasalud.ar/audi/tmp/${nombreArchivo}`;
+
         let pdfExiste = false;
         try {
             await fs.access(rutaArchivo);
@@ -4054,16 +4054,16 @@ export const reenviarEmail = async (req, res) => {
             console.log(`⚠️ PDF no encontrado: ${nombreArchivo}`);
             pdfExiste = false;
         }
-        
+
         // 3. PREPARAR CONTENIDO DEL EMAIL
         const estadoTexto = {
             1: 'APROBADO',
-            2: 'RECHAZADO', 
+            2: 'RECHAZADO',
             3: 'OBSERVADO'
         }[auditoria.auditado] || 'PROCESADO';
-        
+
         const asunto = `Auditoría ${estadoTexto} - ${auditoria.apellido}, ${auditoria.nombre}`;
-        
+
         let mensaje = `
             <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
                 <h2 style="color: #2563eb;">Estimado/a ${auditoria.nombre} ${auditoria.apellido}</h2>
@@ -4078,7 +4078,7 @@ export const reenviarEmail = async (req, res) => {
                     </ul>
                 </div>
         `;
-        
+
         if (auditoria.nota) {
             mensaje += `
                 <div style="background: #fef3c7; padding: 15px; border-radius: 8px; margin: 20px 0; border-left: 4px solid #f59e0b;">
@@ -4086,7 +4086,7 @@ export const reenviarEmail = async (req, res) => {
                 </div>
             `;
         }
-        
+
         if (auditoria.auditado === 1) {
             mensaje += `
                 <div style="background: #ecfdf5; padding: 15px; border-radius: 8px; margin: 20px 0; border-left: 4px solid #10b981;">
@@ -4111,7 +4111,7 @@ export const reenviarEmail = async (req, res) => {
                 </div>
             `;
         }
-        
+
         mensaje += `
                 <div style="margin-top: 30px; padding-top: 20px; border-top: 1px solid #e5e7eb;">
                     <p>Saludos cordiales,<br>
@@ -4120,7 +4120,7 @@ export const reenviarEmail = async (req, res) => {
                 </div>
             </div>
         `;
-        
+
         // 4. CONFIGURAR Y ENVIAR EMAIL
         const opcionesEmail = {
             destinatario: auditoria.email,
@@ -4128,14 +4128,14 @@ export const reenviarEmail = async (req, res) => {
             adjuntarPDF: pdfExiste && (auditoria.auditado === 1 || auditoria.auditado === 3),
             rutaPDF: pdfExiste ? rutaArchivo : null
         };
-        
+
         console.log('Configuración del email:', opcionesEmail);
-        
+
         const resultadoEmail = await enviarEmailSimplificado(mensaje, opcionesEmail);
-        
+
         if (resultadoEmail.success) {
             console.log(`✅ Email reenviado exitosamente a ${auditoria.email}`);
-            
+
             res.json({
                 success: true,
                 message: 'Email reenviado correctamente',
@@ -4151,13 +4151,13 @@ export const reenviarEmail = async (req, res) => {
             });
         } else {
             console.error(`❌ Error enviando email: ${resultadoEmail.message}`);
-            
+
             return res.status(500).json({
                 success: false,
                 message: `Error al enviar email: ${resultadoEmail.message}`
             });
         }
-        
+
     } catch (error) {
         console.error('❌ Error en reenviarEmail:', error);
         res.status(500).json({
@@ -4175,33 +4175,33 @@ export const reenviarEmail = async (req, res) => {
 async function regenerarPDFParaEmail(auditoriaId, connection) {
     try {
         console.log(`🔄 Regenerando PDF para auditoría ${auditoriaId}`);
-        
+
         // Reutilizar la lógica de generarPDF pero simplificada
         const sqlAuditoria = `SELECT * FROM rec_auditoria WHERE id = ?`;
         const [auditoriaResult] = await connection.execute(sqlAuditoria, [auditoriaId]);
-        
+
         if (!auditoriaResult || auditoriaResult.length === 0) {
             throw new Error('Auditoría no encontrada para regenerar PDF');
         }
-        
+
         const auditoria = auditoriaResult[0];
         const ciclo = auditoria.cantmeses;
-        
+
         // Generar QR
         const nombreArchivo = `audinro${auditoriaId}.pdf`;
-        const urlPDF = `https://cpce.recetasalud.ar/audi/tmp/${nombreArchivo}`;
+        const urlPDF = `https://test1.recetasalud.ar/audi/tmp/${nombreArchivo}`;
         const qrCodeDataURL = await QRCode.toDataURL(urlPDF);
-        
+
         let htmlContent = '';
         let medicamentosAutorizados = 0;
-        
+
         // Procesar cada receta del ciclo
         for (let i = 0; i < ciclo; i++) {
             const nroReceta = `idreceta${i + 1}`;
             const idreceta = auditoria[nroReceta];
-            
+
             if (!idreceta) continue;
-            
+
             // Obtener datos de la receta
             const sqlReceta = `
                 SELECT r.fechaemision, r.diagnostico, r.idobrasocafiliado,
@@ -4215,15 +4215,15 @@ async function regenerarPDFParaEmail(auditoriaId, connection) {
                 WHERE r.idreceta = ?
             `;
             const [recetaResult] = await connection.execute(sqlReceta, [idreceta]);
-            
+
             if (!recetaResult || recetaResult.length === 0) continue;
-            
+
             const receta = recetaResult[0];
-            
+
             // Configurar tabla según obra social
             let tablavadem = 'vademecum';
             let logoHeader = 'cmpc.jpg';
-            
+
             switch (receta.idobrasocafiliado) {
                 case 156:
                     tablavadem = 'vad_muni';
@@ -4234,7 +4234,7 @@ async function regenerarPDFParaEmail(auditoriaId, connection) {
                     logoHeader = '20.jpg';
                     break;
             }
-            
+
             // Obtener medicamentos
             const sqlMedicamentos = `
                 SELECT p.idreceta, p.nro_orden, 
@@ -4252,20 +4252,20 @@ async function regenerarPDFParaEmail(auditoriaId, connection) {
                 ORDER BY p.nro_orden
             `;
             const [medicamentosResult] = await connection.execute(sqlMedicamentos, [idreceta]);
-            
+
             if (!medicamentosResult || medicamentosResult.length === 0) continue;
-            
+
             // Procesar identidad del paciente (siempre usar identidad completa para emails)
             const identidadPaciente = `<b>${receta.apellido} ${receta.nombre}</b> DNI: ${receta.dni}`;
-            
+
             // Generar HTML para cada medicamento
             for (const medicamento of medicamentosResult) {
                 if (medicamento.estado_auditoria == 1) {
                     medicamentosAutorizados++;
-                    
+
                     const numeroReceta = medicamento.numero_farmalink || medicamento.idreceta;
                     const numeroDisplay = `${numeroReceta}-${medicamento.nro_orden}`;
-                    
+
                     let autorizacionEspecialInfo = '';
                     if (medicamento.autorizacion_especial) {
                         autorizacionEspecialInfo = `
@@ -4274,10 +4274,10 @@ async function regenerarPDFParaEmail(auditoriaId, connection) {
                             </div>
                         `;
                     }
-                    
+
                     const codigoBarras = await generarCodigoBarras(numeroDisplay);
                     const codigoBarrasAfiliado = await generarCodigoBarras(receta.nromatriculadoc);
-                    
+
                     htmlContent += generarHTMLReceta({
                         logoHeader,
                         numeroDisplay,
@@ -4297,7 +4297,7 @@ async function regenerarPDFParaEmail(auditoriaId, connection) {
                         codigoBarrasAfiliado,
                         fechaVence: medicamento.fechavto
                     });
-                    
+
                     // Duplicado para tipo_venta 3
                     if (medicamento.tipo_venta == 3) {
                         htmlContent += generarHTMLRecetaDuplicado({
@@ -4333,91 +4333,91 @@ async function regenerarPDFParaEmail(auditoriaId, connection) {
                 }
             }
         }
-        
+
         if (!htmlContent) {
             throw new Error('No hay contenido para generar el PDF');
         }
-        
+
         // Generar PDF
         const pdfBuffer = await generarPDFDesdeHTML(htmlContent);
-        
+
         // Guardar PDF
         const rutaLocal = `/var/www/cpce.recetasalud.ar/audi/tmp/`;
         const rutaAzure = `/mnt/fscpcess01/prod/`;
-        
+
         // Crear directorios si no existen
-        await fs.mkdir(rutaLocal, { recursive: true }).catch(() => {});
-        await fs.mkdir(rutaAzure, { recursive: true }).catch(() => {});
-        
+        await fs.mkdir(rutaLocal, { recursive: true }).catch(() => { });
+        await fs.mkdir(rutaAzure, { recursive: true }).catch(() => { });
+
         // Guardar en ambas ubicaciones
         await fs.writeFile(path.join(rutaLocal, nombreArchivo), pdfBuffer);
         await fs.writeFile(path.join(rutaAzure, nombreArchivo), pdfBuffer);
-        
+
         console.log(`✅ PDF regenerado exitosamente: ${nombreArchivo}`);
         return true;
-        
+
     } catch (error) {
         console.error('❌ Error regenerando PDF:', error);
         throw error;
     }
 
-// FUNCIÓN AUXILIAR MEJORADA: Enviar email con adjuntos
- async function enviarEmailRecetas(auditoria, htmlContent, idauditoria, opciones = {}) {
-    try {
-        console.log(`📧 Enviando email para auditoría ${idauditoria}`);
-        
-        // Configuración del transporter de nodemailer
-        const transporter = nodemailer.createTransporter({
-            host: process.env.SMTP_HOST || 'email-smtp.us-east-1.amazonaws.com',
-            port: process.env.SMTP_PORT || 465,
-            secure: false,
-            auth: {
-                user: process.env.SMTP_USER || 'AKIAT6MBAVXI5NZU2ABU',
-                pass: process.env.SMTP_PASS || 'BCfSMSUVTvYik0LwLQYzYrdLNtKWli7w2UpU++5ENSXk'
+    // FUNCIÓN AUXILIAR MEJORADA: Enviar email con adjuntos
+    async function enviarEmailRecetas(auditoria, htmlContent, idauditoria, opciones = {}) {
+        try {
+            console.log(`📧 Enviando email para auditoría ${idauditoria}`);
+
+            // Configuración del transporter de nodemailer
+            const transporter = nodemailer.createTransporter({
+                host: process.env.SMTP_HOST || 'email-smtp.us-east-1.amazonaws.com',
+                port: process.env.SMTP_PORT || 465,
+                secure: false,
+                auth: {
+                    user: process.env.SMTP_USER || 'AKIAT6MBAVXI5NZU2ABU',
+                    pass: process.env.SMTP_PASS || 'BCfSMSUVTvYik0LwLQYzYrdLNtKWli7w2UpU++5ENSXk'
+                }
+            });
+
+            // Configurar opciones del email
+            const mailOptions = {
+                from: process.env.SMTP_FROM || '"Auditoría Médica" <auditoria@cmpc.org.ar>',
+                to: opciones.destinatario,
+                subject: opciones.asunto || `Auditoría Médica - ID ${idauditoria}`,
+                html: htmlContent,
+                attachments: []
+            };
+
+            // Adjuntar PDF si es necesario
+            if (opciones.adjuntarPDF && opciones.rutaPDF) {
+                try {
+                    await fs.access(opciones.rutaPDF);
+                    mailOptions.attachments.push({
+                        filename: `auditoria-${idauditoria}.pdf`,
+                        path: opciones.rutaPDF,
+                        contentType: 'application/pdf'
+                    });
+                    console.log(`📎 PDF adjuntado: ${opciones.rutaPDF}`);
+                } catch (fileError) {
+                    console.warn(`⚠️ No se pudo adjuntar el PDF: ${fileError.message}`);
+                }
             }
-        });
-        
-        // Configurar opciones del email
-        const mailOptions = {
-            from: process.env.SMTP_FROM || '"Auditoría Médica" <auditoria@cmpc.org.ar>',
-            to: opciones.destinatario,
-            subject: opciones.asunto || `Auditoría Médica - ID ${idauditoria}`,
-            html: htmlContent,
-            attachments: []
-        };
-        
-        // Adjuntar PDF si es necesario
-        if (opciones.adjuntarPDF && opciones.rutaPDF) {
-            try {
-                await fs.access(opciones.rutaPDF);
-                mailOptions.attachments.push({
-                    filename: `auditoria-${idauditoria}.pdf`,
-                    path: opciones.rutaPDF,
-                    contentType: 'application/pdf'
-                });
-                console.log(`📎 PDF adjuntado: ${opciones.rutaPDF}`);
-            } catch (fileError) {
-                console.warn(`⚠️ No se pudo adjuntar el PDF: ${fileError.message}`);
-            }
+
+            // Enviar email
+            const info = await transporter.sendMail(mailOptions);
+
+            console.log(`✅ Email enviado exitosamente: ${info.messageId}`);
+            return {
+                success: true,
+                messageId: info.messageId,
+                destinatario: opciones.destinatario
+            };
+
+        } catch (error) {
+            console.error('❌ Error enviando email:', error);
+            return {
+                success: false,
+                message: error.message
+            };
         }
-        
-        // Enviar email
-        const info = await transporter.sendMail(mailOptions);
-        
-        console.log(`✅ Email enviado exitosamente: ${info.messageId}`);
-        return {
-            success: true,
-            messageId: info.messageId,
-            destinatario: opciones.destinatario
-        };
-        
-    } catch (error) {
-        console.error('❌ Error enviando email:', error);
-        return {
-            success: false,
-            message: error.message
-        };
-    }
     }
 
 

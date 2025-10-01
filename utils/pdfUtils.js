@@ -308,7 +308,7 @@ class PDFUtils {
                             <td colspan="6" width="100%"><hr style="border: 1px solid #000;" /></td>
                         </tr>  
                         <tr>
-                            <td colspan="2" width="25%"><img src="https://cpce.recetasalud.ar/logo/${datos.logoHeader}" width="150px"></td>
+                            <td colspan="2" width="25%"><img src="https://test1.recetasalud.ar/logo/${datos.logoHeader}" width="150px"></td>
                             <td colspan="2" width="50%"><h2>Nro: ${datos.numeroDisplay}</h2>${datos.autorizacionEspecialInfo || ''}</td>
                             <td colspan="2" width="25%" align="right"><h2>Fecha: ${datos.fecha}</h2></td>
                         </tr>
@@ -428,7 +428,7 @@ class PDFUtils {
                 <table width="100%">
                     <tbody>
                         <tr>
-                            <td colspan="2" width="15%"><img src="https://cpce.recetasalud.ar/logo/${datos.logoHeader}" width="180px"></td>
+                            <td colspan="2" width="15%"><img src="https://test1.recetasalud.ar/logo/${datos.logoHeader}" width="180px"></td>
                             <td colspan="4" width="85%"><h2>RECETA NO AUTORIZADA</h2></td>
                         </tr>
                         <tr>
