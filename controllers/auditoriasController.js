@@ -1,9 +1,5 @@
 ﻿import { executeQuery, getConnection } from '../config/database.js';
 import ExcelJS from 'exceljs';
-import QRCode from 'qrcode';
-//import puppeteer from 'puppeteer';
-import JsBarcode from 'jsbarcode';
-import { createCanvas } from 'canvas';
 import nodemailer from 'nodemailer';
 import { promises as fs } from 'fs';
 import path from 'path';
@@ -2333,40 +2329,6 @@ export const getHistorialPacientePOST = async (req, res) => {
     return getHistorialPaciente(req, res);
 };
 
-export async function generarCodigoBarras(codigo) {
-    // Implementar generación de código de barras básica
-    return `data:image/png;base64,${Buffer.from(codigo).toString('base64')}`;
-}
-
-export async function generarPDFDesdeHTML(htmlContent) {
-    const browser = await puppeteer.launch({
-        headless: true,
-        args: ['--no-sandbox', '--disable-setuid-sandbox']
-    });
-
-    const page = await browser.newPage();
-
-    await page.setContent(htmlContent, {
-        waitUntil: 'networkidle0'
-    });
-
-    const pdfBuffer = await page.pdf({
-        format: 'A4',
-        landscape: true,
-        printBackground: true,
-        margin: {
-            top: '10mm',
-            bottom: '10mm',
-            left: '10mm',
-            right: '10mm'
-        }
-    });
-
-    await browser.close();
-
-    return pdfBuffer;
-}
-
 export async function guardarArchivo(ruta, buffer) {
     // Crear directorio si no existe
     const dir = path.dirname(ruta);
@@ -2698,8 +2660,8 @@ export const generarPDF = async (req, res) => {
                         `;
                     }
 
-                    const codigoBarras = await generarCodigoBarras(numeroDisplay);
-                    const codigoBarrasAfiliado = await generarCodigoBarras(receta.nromatriculadoc);
+                    const codigoBarras = await PDFUtils.generarCodigoBarras(numeroDisplay);
+                    const codigoBarrasAfiliado = await PDFUtils.generarCodigoBarras(receta.nromatriculadoc);
 
                     htmlContent += generarHTMLReceta({
                         logoHeader,
@@ -4278,8 +4240,8 @@ async function regenerarPDFParaEmail(auditoriaId, connection) {
                         `;
                     }
 
-                    const codigoBarras = await generarCodigoBarras(numeroDisplay);
-                    const codigoBarrasAfiliado = await generarCodigoBarras(receta.nromatriculadoc);
+                    const codigoBarras = await PDFUtils.generarCodigoBarras(numeroDisplay);
+                    const codigoBarrasAfiliado = await PDFUtils.generarCodigoBarras(receta.nromatriculadoc);
 
                     htmlContent += generarHTMLReceta({
                         logoHeader,
