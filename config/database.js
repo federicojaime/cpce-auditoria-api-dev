@@ -1,5 +1,7 @@
-﻿const mysql = require('mysql2/promise');
-require('dotenv').config();
+﻿import mysql from 'mysql2/promise';
+import dotenv from 'dotenv';
+
+dotenv.config();
 
 // Crear el pool de conexiones
 const pool = mysql.createPool({
@@ -46,9 +48,5 @@ pool.getConnection()
         console.error('❌ Error conectando a la base de datos:', err);
     });
 
-// Exportar tanto el pool como las funciones helper
-module.exports = {
-    pool,
-    executeQuery,
-    getConnection
-};
+// Exportar usando named exports
+export { pool, executeQuery, getConnection };

@@ -1,10 +1,11 @@
-﻿const express = require('express');
-const router = express.Router();
-const { body } = require('express-validator');
-const authController = require('../controllers/authController');
-const authMiddleware = require('../middleware/auth');
+﻿import express from 'express';
+import { body } from 'express-validator';
+import * as authController from '../controllers/authController.js';
+import authMiddleware from '../middleware/auth.js';
 
-// Validaciones para el login
+const router = express.Router();
+
+// Validaciones para login
 const loginValidation = [
     body('username')
         .notEmpty()
@@ -25,7 +26,7 @@ router.post('/login', loginValidation, authController.login);
 router.post('/logout', authMiddleware, authController.logout);
 router.get('/profile', authMiddleware, authController.getProfile);
 
-// Cambio de contraseña (pública - usa usuario + DNI)
+// Cambio de contraseña
 router.put('/change-password', [
     body('username').notEmpty().withMessage('El usuario es requerido'),
     body('dni').notEmpty().withMessage('El DNI es requerido'),
@@ -41,4 +42,4 @@ router.get('/verify', authMiddleware, (req, res) => {
     });
 });
 
-module.exports = router;
+export default router;

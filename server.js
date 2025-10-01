@@ -1,96 +1,95 @@
-﻿const express = require('express');
-const cors = require('cors');
-const helmet = require('helmet');
-const rateLimit = require('express-rate-limit');
-require('dotenv').config();
+﻿// server.js
+
+import express from 'express';
+import cors from 'cors';
+import helmet from 'helmet';
+import dotenv from 'dotenv';
+import rateLimit from 'express-rate-limit';
+
+// Importar rutas (solo las que existen)
+import authRoutes from './routes/auth.js';
+import auditoriasRoutes from './routes/auditorias.js';
+// import usuariosRoutes from './routes/usuarios.js'; // ❌ Comentar si no existe
+
+dotenv.config();
 
 const app = express();
 const PORT = process.env.PORT || 3000;
 
-// CORS PRIMERO - antes que Helmet
+// Middlewares de seguridad
+app.use(helmet());
 app.use(cors({
-    origin: [
-        'http://localhost:5173',
-        'http://127.0.0.1:5173',
-        'http://localhost:3000',
-        'http://127.0.0.1:3000'
-    ],
-    credentials: true,
-    methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-    allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With']
-}));
-
-// Helmet configuración más permisiva para desarrollo
-app.use(helmet({
-    crossOriginEmbedderPolicy: false,
-    crossOriginResourcePolicy: { policy: "cross-origin" },
-    contentSecurityPolicy: {
-        directives: {
-            defaultSrc: ["'self'"],
-            connectSrc: ["'self'", "http://localhost:5173", "http://127.0.0.1:5173"]
-        }
-    }
+    origin: process.env.FRONTEND_URL || '*',
+    credentials: true
 }));
 
 // Rate limiting
 const limiter = rateLimit({
-    windowMs: 15 * 60 * 1000, // 15 minutos
-    max: 100,
-    message: 'Demasiadas solicitudes, intenta de nuevo más tarde'
+    windowMs: 15 * 60 * 1000,
+    max: 100
 });
 app.use('/api/', limiter);
 
-// Middleware para parsear JSON
+// Middlewares para parsing
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 
+// Logging middleware
+app.use((req, res, next) => {
+    console.log(`${new Date().toISOString()} - ${req.method} ${req.path}`);
+    next();
+});
+
 // Rutas
-app.use('/api/auth', require('./routes/auth'));
-app.use('/api/auditorias', require('./routes/auditorias')); // Asegúrate de que las rutas de auditorías estén registradas
-app.use('/api/proveedores', require('./routes/proveedores'));
+app.use('/api/auth', authRoutes);
+app.use('/api/auditorias', auditoriasRoutes);
+// app.use('/api/usuarios', usuariosRoutes); // ❌ Comentar si no existe
 
-
-
-const vademecumRoutes = require('./routes/vademecum');
-app.use('/api/vademecum', vademecumRoutes);
-// Ruta de salud (health check)
-app.get('/api/health', (req, res) => {
-    res.json({
-        status: 'OK',
-        message: 'API funcionando correctamente',
-        timestamp: new Date().toISOString()
+// Ruta de health check
+app.get('/health', (req, res) => {
+    res.json({ 
+        status: 'OK', 
+        timestamp: new Date().toISOString(),
+        environment: process.env.NODE_ENV || 'development'
     });
 });
 
-// Agrega esta ruta temporal después de las otras rutas
-app.get('/api/debug/tables', async (req, res) => {
-    try {
-        const pool = require('./config/database');
-        const [tables] = await pool.query('SHOW TABLES');
-        res.json({ tables });
-    } catch (error) {
-        res.status(500).json({ error: error.message });
-    }
+// Ruta raíz
+app.get('/', (req, res) => {
+    res.json({
+        message: 'API de Auditorías CPCE',
+        version: '1.0.0',
+        endpoints: {
+            auth: '/api/auth',
+            auditorias: '/api/auditorias',
+            health: '/health'
+        }
+    });
 });
 
 // Manejo de rutas no encontradas
-app.use('*', (req, res) => {
+app.use((req, res) => {
     res.status(404).json({
-        error: true,
-        message: 'Ruta no encontrada'
+        success: false,
+        message: 'Endpoint no encontrado'
     });
 });
 
 // Manejo global de errores
 app.use((err, req, res, next) => {
-    console.error(err.stack);
-    res.status(500).json({
-        error: true,
-        message: 'Error interno del servidor'
+    console.error('Error:', err);
+    res.status(err.status || 500).json({
+        success: false,
+        message: err.message || 'Error interno del servidor',
+        ...(process.env.NODE_ENV === 'development' && { stack: err.stack })
     });
 });
 
+// Iniciar servidor
 app.listen(PORT, () => {
-    console.log('🚀 Servidor corriendo en puerto ' + PORT);
-    console.log('📱 Health check: http://localhost:' + PORT + '/api/health');
+    console.log(`🚀 Servidor corriendo en puerto ${PORT}`);
+    console.log(`📍 Entorno: ${process.env.NODE_ENV || 'development'}`);
+    console.log(`🔗 URL: http://localhost:${PORT}`);
 });
+
+export default app;

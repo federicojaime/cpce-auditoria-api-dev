@@ -1,7 +1,7 @@
-const express = require('express');
+import express from 'express';
+
 const router = express.Router();
 
-// Proxy para cargar contenido del vademécum
 router.post('/proxy', async (req, res) => {
   try {
     const { url, token } = req.body;
@@ -20,4 +20,4 @@ router.post('/proxy', async (req, res) => {
   }
 });
 
-module.exports = router;
+export default router;
