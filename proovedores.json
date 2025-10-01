@@ -1,0 +1,1782 @@
+{
+    "info": {
+        "name": "CPCE Proveedores API - COMPLETA v2.5",
+        "description": "Colección COMPLETA y CORREGIDA para el módulo de Proveedores del Sistema CPCE. Incluye todos los endpoints, validaciones, tests automatizados y manejo de errores.",
+        "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+        "version": {
+            "major": 2,
+            "minor": 5,
+            "patch": 0
+        }
+    },
+    "variable": [
+        {
+            "key": "base_url",
+            "value": "http://localhost:3000/api",
+            "type": "string",
+            "description": "URL base para desarrollo local"
+        },
+        {
+            "key": "base_url_prod",
+            "value": "https://tu-dominio-api.com/api",
+            "type": "string",
+            "description": "URL base para producción"
+        },
+        {
+            "key": "jwt_token",
+            "value": "",
+            "type": "string",
+            "description": "Token JWT para autenticación"
+        },
+        {
+            "key": "proveedor_id",
+            "value": "1",
+            "type": "string",
+            "description": "ID del proveedor para testing"
+        },
+        {
+            "key": "contacto_id",
+            "value": "1",
+            "type": "string",
+            "description": "ID del contacto para testing"
+        },
+        {
+            "key": "test_cuit",
+            "value": "30-99999999-9",
+            "type": "string",
+            "description": "CUIT para testing"
+        }
+    ],
+    "auth": {
+        "type": "bearer",
+        "bearer": [
+            {
+                "key": "token",
+                "value": "{{jwt_token}}",
+                "type": "string"
+            }
+        ]
+    },
+    "item": [
+        {
+            "name": "🔐 AUTH - Login",
+            "item": [
+                {
+                    "name": "1. Login para obtener JWT",
+                    "event": [
+                        {
+                            "listen": "test",
+                            "script": {
+                                "type": "text/javascript",
+                                "exec": [
+                                    "pm.test('Status code is 200', function () {",
+                                    "    pm.response.to.have.status(200);",
+                                    "});",
+                                    "",
+                                    "pm.test('Response has token', function () {",
+                                    "    var jsonData = pm.response.json();",
+                                    "    pm.expect(jsonData).to.have.property('token');",
+                                    "    pm.expect(jsonData.success).to.be.true;",
+                                    "});",
+                                    "",
+                                    "if (pm.response.code === 200) {",
+                                    "    const responseJson = pm.response.json();",
+                                    "    if (responseJson.token) {",
+                                    "        pm.collectionVariables.set('jwt_token', responseJson.token);",
+                                    "        console.log('✅ Token guardado exitosamente');",
+                                    "        console.log('👤 Usuario:', responseJson.user.nombre + ' ' + responseJson.user.apellido);",
+                                    "        console.log('🔑 Rol:', responseJson.user.rol);",
+                                    "    }",
+                                    "}"
+                                ]
+                            }
+                        }
+                    ],
+                    "request": {
+                        "method": "POST",
+                        "header": [
+                            {
+                                "key": "Content-Type",
+                                "value": "application/json"
+                            }
+                        ],
+                        "body": {
+                            "mode": "raw",
+                            "raw": "{\n    \"username\": \"tu_usuario\",\n    \"password\": \"tu_password\"\n}"
+                        },
+                        "url": {
+                            "raw": "{{base_url}}/auth/login",
+                            "host": [
+                                "{{base_url}}"
+                            ],
+                            "path": [
+                                "auth",
+                                "login"
+                            ]
+                        },
+                        "description": "Obtener token JWT para autenticación en endpoints de proveedores"
+                    }
+                }
+            ],
+            "description": "Endpoints de autenticación necesarios para acceder a proveedores"
+        },
+        {
+            "name": "🔧 AUXILIARES",
+            "item": [
+                {
+                    "name": "1. Obtener Tipos de Proveedores",
+                    "event": [
+                        {
+                            "listen": "test",
+                            "script": {
+                                "type": "text/javascript",
+                                "exec": [
+                                    "pm.test('Status code is 200', function () {",
+                                    "    pm.response.to.have.status(200);",
+                                    "});",
+                                    "",
+                                    "pm.test('Response has correct structure', function () {",
+                                    "    var jsonData = pm.response.json();",
+                                    "    pm.expect(jsonData).to.have.property('success', true);",
+                                    "    pm.expect(jsonData).to.have.property('data');",
+                                    "    pm.expect(jsonData.data).to.be.an('array');",
+                                    "});",
+                                    "",
+                                    "pm.test('Contains expected provider types', function () {",
+                                    "    var jsonData = pm.response.json();",
+                                    "    var types = jsonData.data.map(t => t.value);",
+                                    "    pm.expect(types).to.include('Laboratorio');",
+                                    "    pm.expect(types).to.include('Droguería');",
+                                    "    pm.expect(types).to.include('Ambos');",
+                                    "});",
+                                    "",
+                                    "console.log('✅ Tipos de proveedores disponibles:');",
+                                    "if (pm.response.code === 200) {",
+                                    "    const data = pm.response.json().data;",
+                                    "    data.forEach(tipo => console.log('  - ' + tipo.label));",
+                                    "}"
+                                ]
+                            }
+                        }
+                    ],
+                    "request": {
+                        "method": "GET",
+                        "header": [],
+                        "url": {
+                            "raw": "{{base_url}}/proveedores/tipos",
+                            "host": [
+                                "{{base_url}}"
+                            ],
+                            "path": [
+                                "proveedores",
+                                "tipos"
+                            ]
+                        },
+                        "description": "Obtener todos los tipos de proveedores disponibles en el sistema"
+                    }
+                },
+                {
+                    "name": "2. Obtener Estadísticas",
+                    "event": [
+                        {
+                            "listen": "test",
+                            "script": {
+                                "type": "text/javascript",
+                                "exec": [
+                                    "pm.test('Status code is 200', function () {",
+                                    "    pm.response.to.have.status(200);",
+                                    "});",
+                                    "",
+                                    "pm.test('Response has statistics structure', function () {",
+                                    "    var jsonData = pm.response.json();",
+                                    "    pm.expect(jsonData).to.have.property('success', true);",
+                                    "    pm.expect(jsonData).to.have.property('data');",
+                                    "    pm.expect(jsonData.data).to.have.property('total_proveedores');",
+                                    "    pm.expect(jsonData.data).to.have.property('proveedores_activos');",
+                                    "    pm.expect(jsonData.data).to.have.property('total_contactos');",
+                                    "});",
+                                    "",
+                                    "pm.test('Statistics have valid numbers', function () {",
+                                    "    var data = pm.response.json().data;",
+                                    "    pm.expect(data.total_proveedores).to.be.a('number');",
+                                    "    pm.expect(data.proveedores_activos).to.be.at.most(data.total_proveedores);",
+                                    "});",
+                                    "",
+                                    "console.log('📊 ESTADÍSTICAS DEL SISTEMA:');",
+                                    "if (pm.response.code === 200) {",
+                                    "    const stats = pm.response.json().data;",
+                                    "    console.log('  📈 Total proveedores:', stats.total_proveedores);",
+                                    "    console.log('  ✅ Activos:', stats.proveedores_activos);",
+                                    "    console.log('  ❌ Inactivos:', stats.proveedores_inactivos);",
+                                    "    console.log('  🧪 Laboratorios:', stats.laboratorios);",
+                                    "    console.log('  🏪 Droguerías:', stats.droguerias);",
+                                    "    console.log('  🔄 Ambos:', stats.ambos);",
+                                    "    console.log('  👥 Total contactos:', stats.total_contactos);",
+                                    "}"
+                                ]
+                            }
+                        }
+                    ],
+                    "request": {
+                        "method": "GET",
+                        "header": [],
+                        "url": {
+                            "raw": "{{base_url}}/proveedores/estadisticas",
+                            "host": [
+                                "{{base_url}}"
+                            ],
+                            "path": [
+                                "proveedores",
+                                "estadisticas"
+                            ]
+                        },
+                        "description": "Obtener estadísticas generales del sistema de proveedores"
+                    }
+                },
+                {
+                    "name": "3. Búsqueda Rápida",
+                    "event": [
+                        {
+                            "listen": "test",
+                            "script": {
+                                "type": "text/javascript",
+                                "exec": [
+                                    "pm.test('Status code is 200', function () {",
+                                    "    pm.response.to.have.status(200);",
+                                    "});",
+                                    "",
+                                    "pm.test('Response has search results', function () {",
+                                    "    var jsonData = pm.response.json();",
+                                    "    pm.expect(jsonData).to.have.property('success', true);",
+                                    "    pm.expect(jsonData).to.have.property('data');",
+                                    "    pm.expect(jsonData.data).to.be.an('array');",
+                                    "});",
+                                    "",
+                                    "pm.test('Results have required fields', function () {",
+                                    "    var data = pm.response.json().data;",
+                                    "    if (data.length > 0) {",
+                                    "        pm.expect(data[0]).to.have.property('id_proveedor');",
+                                    "        pm.expect(data[0]).to.have.property('razon_social');",
+                                    "        pm.expect(data[0]).to.have.property('cuit');",
+                                    "    }",
+                                    "});",
+                                    "",
+                                    "console.log('🔍 RESULTADOS DE BÚSQUEDA:');",
+                                    "if (pm.response.code === 200) {",
+                                    "    const results = pm.response.json().data;",
+                                    "    console.log('  📋 Resultados encontrados:', results.length);",
+                                    "    results.forEach((p, i) => {",
+                                    "        console.log(`  ${i+1}. ${p.razon_social} (${p.cuit})`);",
+                                    "    });",
+                                    "    if (results.length > 0) {",
+                                    "        pm.collectionVariables.set('proveedor_id', results[0].id_proveedor);",
+                                    "        console.log('  🔗 ID guardado para testing:', results[0].id_proveedor);",
+                                    "    }",
+                                    "}"
+                                ]
+                            }
+                        }
+                    ],
+                    "request": {
+                        "method": "GET",
+                        "header": [],
+                        "url": {
+                            "raw": "{{base_url}}/proveedores/buscar?q=laboratorio&limit=5",
+                            "host": [
+                                "{{base_url}}"
+                            ],
+                            "path": [
+                                "proveedores",
+                                "buscar"
+                            ],
+                            "query": [
+                                {
+                                    "key": "q",
+                                    "value": "laboratorio",
+                                    "description": "Término de búsqueda (min 2 caracteres)"
+                                },
+                                {
+                                    "key": "limit",
+                                    "value": "5",
+                                    "description": "Límite de resultados (max 50)"
+                                }
+                            ]
+                        },
+                        "description": "Búsqueda rápida de proveedores para autocompletar"
+                    }
+                },
+                {
+                    "name": "4. Test Búsqueda con Error de Validación",
+                    "event": [
+                        {
+                            "listen": "test",
+                            "script": {
+                                "type": "text/javascript",
+                                "exec": [
+                                    "pm.test('Status code is 400 for invalid search', function () {",
+                                    "    pm.response.to.have.status(400);",
+                                    "});",
+                                    "",
+                                    "pm.test('Error response has correct structure', function () {",
+                                    "    var jsonData = pm.response.json();",
+                                    "    pm.expect(jsonData).to.have.property('success', false);",
+                                    "    pm.expect(jsonData).to.have.property('message');",
+                                    "});",
+                                    "",
+                                    "pm.test('Error message mentions character requirement', function () {",
+                                    "    var jsonData = pm.response.json();",
+                                    "    pm.expect(jsonData.message.toLowerCase()).to.include('caracteres');",
+                                    "});",
+                                    "",
+                                    "console.log('✅ Validación funcionando correctamente');",
+                                    "console.log('📝 Error:', pm.response.json().message);"
+                                ]
+                            }
+                        }
+                    ],
+                    "request": {
+                        "method": "GET",
+                        "header": [],
+                        "url": {
+                            "raw": "{{base_url}}/proveedores/buscar?q=a",
+                            "host": [
+                                "{{base_url}}"
+                            ],
+                            "path": [
+                                "proveedores",
+                                "buscar"
+                            ],
+                            "query": [
+                                {
+                                    "key": "q",
+                                    "value": "a",
+                                    "description": "Búsqueda inválida (menos de 2 caracteres)"
+                                }
+                            ]
+                        },
+                        "description": "Test de validación - búsqueda con menos de 2 caracteres debe fallar"
+                    }
+                }
+            ],
+            "description": "Endpoints auxiliares para tipos, estadísticas y búsqueda"
+        },
+        {
+            "name": "📊 CRUD PROVEEDORES",
+            "item": [
+                {
+                    "name": "1. Listar Proveedores (sin filtros)",
+                    "event": [
+                        {
+                            "listen": "test",
+                            "script": {
+                                "type": "text/javascript",
+                                "exec": [
+                                    "pm.test('Status code is 200', function () {",
+                                    "    pm.response.to.have.status(200);",
+                                    "});",
+                                    "",
+                                    "pm.test('Response has pagination structure', function () {",
+                                    "    var jsonData = pm.response.json();",
+                                    "    pm.expect(jsonData).to.have.property('success', true);",
+                                    "    pm.expect(jsonData).to.have.property('data');",
+                                    "    pm.expect(jsonData).to.have.property('page');",
+                                    "    pm.expect(jsonData).to.have.property('totalPages');",
+                                    "    pm.expect(jsonData).to.have.property('total');",
+                                    "    pm.expect(jsonData).to.have.property('limit');",
+                                    "});",
+                                    "",
+                                    "pm.test('Data is array with provider structure', function () {",
+                                    "    var data = pm.response.json().data;",
+                                    "    pm.expect(data).to.be.an('array');",
+                                    "    if (data.length > 0) {",
+                                    "        pm.expect(data[0]).to.have.property('id_proveedor');",
+                                    "        pm.expect(data[0]).to.have.property('razon_social');",
+                                    "        pm.expect(data[0]).to.have.property('cuit');",
+                                    "        pm.expect(data[0]).to.have.property('tipo_proveedor');",
+                                    "        pm.expect(data[0]).to.have.property('total_contactos');",
+                                    "    }",
+                                    "});",
+                                    "",
+                                    "console.log('📋 LISTADO DE PROVEEDORES:');",
+                                    "if (pm.response.code === 200) {",
+                                    "    const response = pm.response.json();",
+                                    "    console.log('  📄 Página:', response.page, 'de', response.totalPages);",
+                                    "    console.log('  📊 Total:', response.total, 'proveedores');",
+                                    "    console.log('  📋 En esta página:', response.data.length);",
+                                    "    ",
+                                    "    if (response.data.length > 0) {",
+                                    "        pm.collectionVariables.set('proveedor_id', response.data[0].id_proveedor);",
+                                    "        console.log('  🔗 Primer proveedor ID:', response.data[0].id_proveedor);",
+                                    "        console.log('  🏢 Razón social:', response.data[0].razon_social);",
+                                    "    }",
+                                    "}"
+                                ]
+                            }
+                        }
+                    ],
+                    "request": {
+                        "method": "GET",
+                        "header": [],
+                        "url": {
+                            "raw": "{{base_url}}/proveedores?page=1&limit=10",
+                            "host": [
+                                "{{base_url}}"
+                            ],
+                            "path": [
+                                "proveedores"
+                            ],
+                            "query": [
+                                {
+                                    "key": "page",
+                                    "value": "1",
+                                    "description": "Número de página"
+                                },
+                                {
+                                    "key": "limit",
+                                    "value": "10",
+                                    "description": "Registros por página"
+                                }
+                            ]
+                        },
+                        "description": "Obtener lista de proveedores con paginación básica"
+                    }
+                },
+                {
+                    "name": "2. Listar Proveedores (con filtros)",
+                    "event": [
+                        {
+                            "listen": "test",
+                            "script": {
+                                "type": "text/javascript",
+                                "exec": [
+                                    "pm.test('Status code is 200', function () {",
+                                    "    pm.response.to.have.status(200);",
+                                    "});",
+                                    "",
+                                    "pm.test('Filtered results match criteria', function () {",
+                                    "    var data = pm.response.json().data;",
+                                    "    data.forEach(proveedor => {",
+                                    "        pm.expect(proveedor.tipo_proveedor).to.eql('Laboratorio');",
+                                    "        pm.expect(proveedor.activo).to.be.true;",
+                                    "    });",
+                                    "});",
+                                    "",
+                                    "console.log('🔍 LISTADO FILTRADO:');",
+                                    "if (pm.response.code === 200) {",
+                                    "    const response = pm.response.json();",
+                                    "    console.log('  🧪 Solo Laboratorios activos');",
+                                    "    console.log('  📊 Encontrados:', response.total);",
+                                    "    response.data.forEach((p, i) => {",
+                                    "        console.log(`  ${i+1}. ${p.razon_social} - ${p.tipo_proveedor}`);",
+                                    "    });",
+                                    "}"
+                                ]
+                            }
+                        }
+                    ],
+                    "request": {
+                        "method": "GET",
+                        "header": [],
+                        "url": {
+                            "raw": "{{base_url}}/proveedores?tipo=Laboratorio&activo=true&limit=5",
+                            "host": [
+                                "{{base_url}}"
+                            ],
+                            "path": [
+                                "proveedores"
+                            ],
+                            "query": [
+                                {
+                                    "key": "tipo",
+                                    "value": "Laboratorio",
+                                    "description": "Filtrar por tipo de proveedor"
+                                },
+                                {
+                                    "key": "activo",
+                                    "value": "true",
+                                    "description": "Solo proveedores activos"
+                                },
+                                {
+                                    "key": "limit",
+                                    "value": "5",
+                                    "description": "Limitar resultados"
+                                }
+                            ]
+                        },
+                        "description": "Obtener proveedores con filtros específicos aplicados"
+                    }
+                },
+                {
+                    "name": "3. Crear Proveedor Completo",
+                    "event": [
+                        {
+                            "listen": "prerequest",
+                            "script": {
+                                "type": "text/javascript",
+                                "exec": [
+                                    "// Generar CUIT único para el test",
+                                    "const timestamp = Date.now().toString().slice(-8);",
+                                    "const testCuit = `30-${timestamp}-9`;",
+                                    "pm.collectionVariables.set('test_cuit', testCuit);",
+                                    "console.log('🔢 CUIT generado para test:', testCuit);"
+                                ]
+                            }
+                        },
+                        {
+                            "listen": "test",
+                            "script": {
+                                "type": "text/javascript",
+                                "exec": [
+                                    "pm.test('Status code is 201', function () {",
+                                    "    pm.response.to.have.status(201);",
+                                    "});",
+                                    "",
+                                    "pm.test('Response indicates successful creation', function () {",
+                                    "    var jsonData = pm.response.json();",
+                                    "    pm.expect(jsonData).to.have.property('success', true);",
+                                    "    pm.expect(jsonData).to.have.property('message');",
+                                    "    pm.expect(jsonData).to.have.property('data');",
+                                    "    pm.expect(jsonData.data).to.have.property('id_proveedor');",
+                                    "});",
+                                    "",
+                                    "pm.test('Returns valid provider ID', function () {",
+                                    "    var data = pm.response.json().data;",
+                                    "    pm.expect(data.id_proveedor).to.be.a('number');",
+                                    "    pm.expect(data.id_proveedor).to.be.above(0);",
+                                    "});",
+                                    "",
+                                    "console.log('✅ PROVEEDOR CREADO EXITOSAMENTE');",
+                                    "if (pm.response.code === 201) {",
+                                    "    const response = pm.response.json();",
+                                    "    const newId = response.data.id_proveedor;",
+                                    "    pm.collectionVariables.set('proveedor_id', newId);",
+                                    "    console.log('  🆔 Nuevo ID:', newId);",
+                                    "    console.log('  📝 Mensaje:', response.message);",
+                                    "    console.log('  💾 ID guardado para siguientes tests');",
+                                    "}"
+                                ]
+                            }
+                        }
+                    ],
+                    "request": {
+                        "method": "POST",
+                        "header": [
+                            {
+                                "key": "Content-Type",
+                                "value": "application/json"
+                            }
+                        ],
+                        "body": {
+                            "mode": "raw",
+                            "raw": "{\n    \"razon_social\": \"Laboratorio Test Postman S.A.\",\n    \"cuit\": \"{{test_cuit}}\",\n    \"tipo_proveedor\": \"Laboratorio\",\n    \"email_general\": \"contacto@testpostman.com\",\n    \"telefono_general\": \"011-1234-5678\",\n    \"direccion_calle\": \"Av. Test\",\n    \"direccion_numero\": \"123\",\n    \"barrio\": \"Centro\",\n    \"localidad\": \"CABA\",\n    \"provincia\": \"Buenos Aires\",\n    \"contactos\": [\n        {\n            \"nombre\": \"Juan\",\n            \"apellido\": \"Test\",\n            \"cargo\": \"Director\",\n            \"email\": \"jtest@testpostman.com\",\n            \"telefono\": \"011-1234-5679\",\n            \"principal\": true\n        },\n        {\n            \"nombre\": \"María\",\n            \"apellido\": \"Prueba\",\n            \"cargo\": \"Gerente\",\n            \"email\": \"mprueba@testpostman.com\",\n            \"telefono\": \"011-1234-5680\",\n            \"principal\": false\n        }\n    ]\n}"
+                        },
+                        "url": {
+                            "raw": "{{base_url}}/proveedores",
+                            "host": [
+                                "{{base_url}}"
+                            ],
+                            "path": [
+                                "proveedores"
+                            ]
+                        },
+                        "description": "Crear un nuevo proveedor con todos los datos y contactos"
+                    }
+                },
+                {
+                    "name": "4. Obtener Proveedor por ID",
+                    "event": [
+                        {
+                            "listen": "test",
+                            "script": {
+                                "type": "text/javascript",
+                                "exec": [
+                                    "pm.test('Status code is 200', function () {",
+                                    "    pm.response.to.have.status(200);",
+                                    "});",
+                                    "",
+                                    "pm.test('Response has complete provider data', function () {",
+                                    "    var jsonData = pm.response.json();",
+                                    "    pm.expect(jsonData).to.have.property('success', true);",
+                                    "    pm.expect(jsonData).to.have.property('data');",
+                                    "    ",
+                                    "    var proveedor = jsonData.data;",
+                                    "    pm.expect(proveedor).to.have.property('id_proveedor');",
+                                    "    pm.expect(proveedor).to.have.property('razon_social');",
+                                    "    pm.expect(proveedor).to.have.property('cuit');",
+                                    "    pm.expect(proveedor).to.have.property('contactos');",
+                                    "});",
+                                    "",
+                                    "pm.test('Contacts array has correct structure', function () {",
+                                    "    var proveedor = pm.response.json().data;",
+                                    "    pm.expect(proveedor.contactos).to.be.an('array');",
+                                    "    ",
+                                    "    if (proveedor.contactos.length > 0) {",
+                                    "        var contacto = proveedor.contactos[0];",
+                                    "        pm.expect(contacto).to.have.property('id_contacto');",
+                                    "        pm.expect(contacto).to.have.property('nombre');",
+                                    "        pm.expect(contacto).to.have.property('apellido');",
+                                    "        pm.expect(contacto).to.have.property('principal');",
+                                    "    }",
+                                    "});",
+                                    "",
+                                    "console.log('👤 DETALLES DEL PROVEEDOR:');",
+                                    "if (pm.response.code === 200) {",
+                                    "    const proveedor = pm.response.json().data;",
+                                    "    console.log('  🏢 Razón Social:', proveedor.razon_social);",
+                                    "    console.log('  📝 CUIT:', proveedor.cuit);",
+                                    "    console.log('  🏷️ Tipo:', proveedor.tipo_proveedor);",
+                                    "    console.log('  📧 Email:', proveedor.email_general || 'No especificado');",
+                                    "    console.log('  📞 Teléfono:', proveedor.telefono_general || 'No especificado');",
+                                    "    console.log('  👥 Contactos:', proveedor.contactos.length);",
+                                    "    ",
+                                    "    if (proveedor.contactos.length > 0) {",
+                                    "        pm.collectionVariables.set('contacto_id', proveedor.contactos[0].id_contacto);",
+                                    "        console.log('  🔗 Primer contacto ID guardado:', proveedor.contactos[0].id_contacto);",
+                                    "        proveedor.contactos.forEach((c, i) => {",
+                                    "            console.log(`    ${i+1}. ${c.nombre} ${c.apellido} - ${c.cargo || 'Sin cargo'} ${c.principal ? '⭐' : ''}`);",
+                                    "        });",
+                                    "    }",
+                                    "}"
+                                ]
+                            }
+                        }
+                    ],
+                    "request": {
+                        "method": "GET",
+                        "header": [],
+                        "url": {
+                            "raw": "{{base_url}}/proveedores/{{proveedor_id}}",
+                            "host": [
+                                "{{base_url}}"
+                            ],
+                            "path": [
+                                "proveedores",
+                                "{{proveedor_id}}"
+                            ]
+                        },
+                        "description": "Obtener un proveedor específico con todos sus contactos"
+                    }
+                },
+                {
+                    "name": "5. Actualizar Proveedor",
+                    "event": [
+                        {
+                            "listen": "test",
+                            "script": {
+                                "type": "text/javascript",
+                                "exec": [
+                                    "pm.test('Status code is 200', function () {",
+                                    "    pm.response.to.have.status(200);",
+                                    "});",
+                                    "",
+                                    "pm.test('Response indicates successful update', function () {",
+                                    "    var jsonData = pm.response.json();",
+                                    "    pm.expect(jsonData).to.have.property('success', true);",
+                                    "    pm.expect(jsonData).to.have.property('message');",
+                                    "    pm.expect(jsonData.message.toLowerCase()).to.include('actualizado');",
+                                    "});",
+                                    "",
+                                    "console.log('✅ PROVEEDOR ACTUALIZADO');",
+                                    "if (pm.response.code === 200) {",
+                                    "    console.log('  📝 Mensaje:', pm.response.json().message);",
+                                    "    console.log('  🔄 Datos actualizados correctamente');",
+                                    "}"
+                                ]
+                            }
+                        }
+                    ],
+                    "request": {
+                        "method": "PUT",
+                        "header": [
+                            {
+                                "key": "Content-Type",
+                                "value": "application/json"
+                            }
+                        ],
+                        "body": {
+                            "mode": "raw",
+                            "raw": "{\n    \"razon_social\": \"Laboratorio Test Postman ACTUALIZADO S.A.\",\n    \"email_general\": \"nuevo@testpostman.com\",\n    \"telefono_general\": \"011-9999-8888\",\n    \"localidad\": \"Buenos Aires\"\n}"
+                        },
+                        "url": {
+                            "raw": "{{base_url}}/proveedores/{{proveedor_id}}",
+                            "host": [
+                                "{{base_url}}"
+                            ],
+                            "path": [
+                                "proveedores",
+                                "{{proveedor_id}}"
+                            ]
+                        },
+                        "description": "Actualizar datos de un proveedor existente"
+                    }
+                },
+                {
+                    "name": "6. Test Crear Proveedor con CUIT Duplicado",
+                    "event": [
+                        {
+                            "listen": "test",
+                            "script": {
+                                "type": "text/javascript",
+                                "exec": [
+                                    "pm.test('Status code is 400 for duplicate CUIT', function () {",
+                                    "    pm.response.to.have.status(400);",
+                                    "});",
+                                    "",
+                                    "pm.test('Error message mentions CUIT', function () {",
+                                    "    var jsonData = pm.response.json();",
+                                    "    pm.expect(jsonData).to.have.property('success', false);",
+                                    "    pm.expect(jsonData.message.toLowerCase()).to.include('cuit');",
+                                    "});",
+                                    "",
+                                    "console.log('✅ VALIDACIÓN DE CUIT DUPLICADO FUNCIONANDO');",
+                                    "console.log('📝 Error:', pm.response.json().message);"
+                                ]
+                            }
+                        }
+                    ],
+                    "request": {
+                        "method": "POST",
+                        "header": [
+                            {
+                                "key": "Content-Type",
+                                "value": "application/json"
+                            }
+                        ],
+                        "body": {
+                            "mode": "raw",
+                            "raw": "{\n    \"razon_social\": \"Otro Laboratorio\",\n    \"cuit\": \"{{test_cuit}}\",\n    \"tipo_proveedor\": \"Laboratorio\"\n}"
+                        },
+                        "url": {
+                            "raw": "{{base_url}}/proveedores",
+                            "host": [
+                                "{{base_url}}"
+                            ],
+                            "path": [
+                                "proveedores"
+                            ]
+                        },
+                        "description": "Test de validación - intentar crear proveedor con CUIT duplicado"
+                    }
+                },
+                {
+                    "name": "7. Test Validaciones de Campos",
+                    "event": [
+                        {
+                            "listen": "test",
+                            "script": {
+                                "type": "text/javascript",
+                                "exec": [
+                                    "pm.test('Status code is 400 for invalid data', function () {",
+                                    "    pm.response.to.have.status(400);",
+                                    "});",
+                                    "",
+                                    "pm.test('Response has validation errors', function () {",
+                                    "    var jsonData = pm.response.json();",
+                                    "    pm.expect(jsonData).to.have.property('success', false);",
+                                    "    pm.expect(jsonData).to.have.property('errors');",
+                                    "    pm.expect(jsonData.errors).to.be.an('array');",
+                                    "});",
+                                    "",
+                                    "pm.test('Validation errors include required fields', function () {",
+                                    "    var errors = pm.response.json().errors;",
+                                    "    var errorMessages = errors.map(e => e.msg || e.message);",
+                                    "    var hasRazonSocialError = errorMessages.some(msg => msg.toLowerCase().includes('razón social'));",
+                                    "    var hasCuitError = errorMessages.some(msg => msg.toLowerCase().includes('cuit'));",
+                                    "    ",
+                                    "    pm.expect(hasRazonSocialError || hasCuitError).to.be.true;",
+                                    "});",
+                                    "",
+                                    "console.log('✅ VALIDACIONES DE CAMPOS FUNCIONANDO');",
+                                    "if (pm.response.code === 400) {",
+                                    "    const errors = pm.response.json().errors;",
+                                    "    console.log('📝 Errores de validación encontrados:');",
+                                    "    errors.forEach((error, i) => {",
+                                    "        console.log(`  ${i+1}. ${error.param || error.field}: ${error.msg || error.message}`);",
+                                    "    });",
+                                    "}"
+                                ]
+                            }
+                        }
+                    ],
+                    "request": {
+                        "method": "POST",
+                        "header": [
+                            {
+                                "key": "Content-Type",
+                                "value": "application/json"
+                            }
+                        ],
+                        "body": {
+                            "mode": "raw",
+                            "raw": "{\n    \"razon_social\": \"\",\n    \"cuit\": \"123456789\",\n    \"tipo_proveedor\": \"TipoInvalido\",\n    \"email_general\": \"email-invalido\"\n}"
+                        },
+                        "url": {
+                            "raw": "{{base_url}}/proveedores",
+                            "host": [
+                                "{{base_url}}"
+                            ],
+                            "path": [
+                                "proveedores"
+                            ]
+                        },
+                        "description": "Test de validaciones - campos inválidos deben retornar errores específicos"
+                    }
+                }
+            ],
+            "description": "Operaciones CRUD principales para proveedores"
+        },
+        {
+            "name": "👥 CRUD CONTACTOS",
+            "item": [
+                {
+                    "name": "1. Listar Contactos del Proveedor",
+                    "event": [
+                        {
+                            "listen": "test",
+                            "script": {
+                                "type": "text/javascript",
+                                "exec": [
+                                    "pm.test('Status code is 200', function () {",
+                                    "    pm.response.to.have.status(200);",
+                                    "});",
+                                    "",
+                                    "pm.test('Response has contacts array', function () {",
+                                    "    var jsonData = pm.response.json();",
+                                    "    pm.expect(jsonData).to.have.property('success', true);",
+                                    "    pm.expect(jsonData).to.have.property('data');",
+                                    "    pm.expect(jsonData.data).to.be.an('array');",
+                                    "});",
+                                    "",
+                                    "pm.test('Contacts have required fields', function () {",
+                                    "    var contacts = pm.response.json().data;",
+                                    "    if (contacts.length > 0) {",
+                                    "        var contact = contacts[0];",
+                                    "        pm.expect(contact).to.have.property('id_contacto');",
+                                    "        pm.expect(contact).to.have.property('nombre');",
+                                    "        pm.expect(contact).to.have.property('apellido');",
+                                    "        pm.expect(contact).to.have.property('principal');",
+                                    "        pm.expect(contact).to.have.property('razon_social');",
+                                    "    }",
+                                    "});",
+                                    "",
+                                    "console.log('👥 CONTACTOS DEL PROVEEDOR:');",
+                                    "if (pm.response.code === 200) {",
+                                    "    const contacts = pm.response.json().data;",
+                                    "    console.log('  📊 Total contactos:', contacts.length);",
+                                    "    ",
+                                    "    if (contacts.length > 0) {",
+                                    "        pm.collectionVariables.set('contacto_id', contacts[0].id_contacto);",
+                                    "        console.log('  🔗 Primer contacto ID:', contacts[0].id_contacto);",
+                                    "        console.log('  🏢 Proveedor:', contacts[0].razon_social);",
+                                    "        ",
+                                    "        contacts.forEach((c, i) => {",
+                                    "            const principal = c.principal ? ' ⭐ PRINCIPAL' : '';",
+                                    "            console.log(`    ${i+1}. ${c.nombre} ${c.apellido} - ${c.cargo || 'Sin cargo'}${principal}`);",
+                                    "            if (c.email) console.log(`       📧 ${c.email}`);",
+                                    "            if (c.telefono) console.log(`       📞 ${c.telefono}`);",
+                                    "        });",
+                                    "    }",
+                                    "}"
+                                ]
+                            }
+                        }
+                    ],
+                    "request": {
+                        "method": "GET",
+                        "header": [],
+                        "url": {
+                            "raw": "{{base_url}}/proveedores/{{proveedor_id}}/contactos",
+                            "host": [
+                                "{{base_url}}"
+                            ],
+                            "path": [
+                                "proveedores",
+                                "{{proveedor_id}}",
+                                "contactos"
+                            ]
+                        },
+                        "description": "Obtener todos los contactos de un proveedor específico"
+                    }
+                },
+                {
+                    "name": "2. Crear Contacto",
+                    "event": [
+                        {
+                            "listen": "test",
+                            "script": {
+                                "type": "text/javascript",
+                                "exec": [
+                                    "pm.test('Status code is 201', function () {",
+                                    "    pm.response.to.have.status(201);",
+                                    "});",
+                                    "",
+                                    "pm.test('Response indicates successful creation', function () {",
+                                    "    var jsonData = pm.response.json();",
+                                    "    pm.expect(jsonData).to.have.property('success', true);",
+                                    "    pm.expect(jsonData).to.have.property('message');",
+                                    "    pm.expect(jsonData).to.have.property('data');",
+                                    "    pm.expect(jsonData.data).to.have.property('id_contacto');",
+                                    "});",
+                                    "",
+                                    "pm.test('Returns valid contact ID', function () {",
+                                    "    var data = pm.response.json().data;",
+                                    "    pm.expect(data.id_contacto).to.be.a('number');",
+                                    "    pm.expect(data.id_contacto).to.be.above(0);",
+                                    "});",
+                                    "",
+                                    "console.log('✅ CONTACTO CREADO EXITOSAMENTE');",
+                                    "if (pm.response.code === 201) {",
+                                    "    const response = pm.response.json();",
+                                    "    const newContactId = response.data.id_contacto;",
+                                    "    pm.collectionVariables.set('contacto_id', newContactId);",
+                                    "    console.log('  🆔 Nuevo contacto ID:', newContactId);",
+                                    "    console.log('  📝 Mensaje:', response.message);",
+                                    "    console.log('  💾 ID guardado para siguientes tests');",
+                                    "}"
+                                ]
+                            }
+                        }
+                    ],
+                    "request": {
+                        "method": "POST",
+                        "header": [
+                            {
+                                "key": "Content-Type",
+                                "value": "application/json"
+                            }
+                        ],
+                        "body": {
+                            "mode": "raw",
+                            "raw": "{\n    \"nombre\": \"Ana\",\n    \"apellido\": \"Martínez\",\n    \"cargo\": \"Directora Técnica\",\n    \"email\": \"amartinez@testpostman.com\",\n    \"telefono\": \"011-5555-6666\",\n    \"principal\": false\n}"
+                        },
+                        "url": {
+                            "raw": "{{base_url}}/proveedores/{{proveedor_id}}/contactos",
+                            "host": [
+                                "{{base_url}}"
+                            ],
+                            "path": [
+                                "proveedores",
+                                "{{proveedor_id}}",
+                                "contactos"
+                            ]
+                        },
+                        "description": "Agregar un nuevo contacto a un proveedor"
+                    }
+                },
+                {
+                    "name": "3. Actualizar Contacto",
+                    "event": [
+                        {
+                            "listen": "test",
+                            "script": {
+                                "type": "text/javascript",
+                                "exec": [
+                                    "pm.test('Status code is 200', function () {",
+                                    "    pm.response.to.have.status(200);",
+                                    "});",
+                                    "",
+                                    "pm.test('Response indicates successful update', function () {",
+                                    "    var jsonData = pm.response.json();",
+                                    "    pm.expect(jsonData).to.have.property('success', true);",
+                                    "    pm.expect(jsonData).to.have.property('message');",
+                                    "    pm.expect(jsonData.message.toLowerCase()).to.include('actualizado');",
+                                    "});",
+                                    "",
+                                    "console.log('✅ CONTACTO ACTUALIZADO');",
+                                    "if (pm.response.code === 200) {",
+                                    "    console.log('  📝 Mensaje:', pm.response.json().message);",
+                                    "    console.log('  🔄 Contacto actualizado correctamente');",
+                                    "    console.log('  ⭐ Marcado como principal');",
+                                    "}"
+                                ]
+                            }
+                        }
+                    ],
+                    "request": {
+                        "method": "PUT",
+                        "header": [
+                            {
+                                "key": "Content-Type",
+                                "value": "application/json"
+                            }
+                        ],
+                        "body": {
+                            "mode": "raw",
+                            "raw": "{\n    \"nombre\": \"Ana María\",\n    \"cargo\": \"Directora Comercial\",\n    \"email\": \"anamaria@testpostman.com\",\n    \"principal\": true\n}"
+                        },
+                        "url": {
+                            "raw": "{{base_url}}/proveedores/{{proveedor_id}}/contactos/{{contacto_id}}",
+                            "host": [
+                                "{{base_url}}"
+                            ],
+                            "path": [
+                                "proveedores",
+                                "{{proveedor_id}}",
+                                "contactos",
+                                "{{contacto_id}}"
+                            ]
+                        },
+                        "description": "Actualizar datos de un contacto existente"
+                    }
+                },
+                {
+                    "name": "4. Test Validaciones de Contacto",
+                    "event": [
+                        {
+                            "listen": "test",
+                            "script": {
+                                "type": "text/javascript",
+                                "exec": [
+                                    "pm.test('Status code is 400 for invalid contact data', function () {",
+                                    "    pm.response.to.have.status(400);",
+                                    "});",
+                                    "",
+                                    "pm.test('Response has validation errors', function () {",
+                                    "    var jsonData = pm.response.json();",
+                                    "    pm.expect(jsonData).to.have.property('success', false);",
+                                    "    pm.expect(jsonData).to.have.property('errors');",
+                                    "    pm.expect(jsonData.errors).to.be.an('array');",
+                                    "});",
+                                    "",
+                                    "console.log('✅ VALIDACIONES DE CONTACTO FUNCIONANDO');",
+                                    "if (pm.response.code === 400) {",
+                                    "    const errors = pm.response.json().errors;",
+                                    "    console.log('📝 Errores de validación:');",
+                                    "    errors.forEach((error, i) => {",
+                                    "        console.log(`  ${i+1}. ${error.param}: ${error.msg}`);",
+                                    "    });",
+                                    "}"
+                                ]
+                            }
+                        }
+                    ],
+                    "request": {
+                        "method": "POST",
+                        "header": [
+                            {
+                                "key": "Content-Type",
+                                "value": "application/json"
+                            }
+                        ],
+                        "body": {
+                            "mode": "raw",
+                            "raw": "{\n    \"nombre\": \"\",\n    \"apellido\": \"\",\n    \"email\": \"email-invalido\",\n    \"principal\": \"no-boolean\"\n}"
+                        },
+                        "url": {
+                            "raw": "{{base_url}}/proveedores/{{proveedor_id}}/contactos",
+                            "host": [
+                                "{{base_url}}"
+                            ],
+                            "path": [
+                                "proveedores",
+                                "{{proveedor_id}}",
+                                "contactos"
+                            ]
+                        },
+                        "description": "Test de validaciones - datos de contacto inválidos"
+                    }
+                },
+                {
+                    "name": "5. Eliminar Contacto",
+                    "event": [
+                        {
+                            "listen": "test",
+                            "script": {
+                                "type": "text/javascript",
+                                "exec": [
+                                    "pm.test('Status code is 200', function () {",
+                                    "    pm.response.to.have.status(200);",
+                                    "});",
+                                    "",
+                                    "pm.test('Response indicates successful deletion', function () {",
+                                    "    var jsonData = pm.response.json();",
+                                    "    pm.expect(jsonData).to.have.property('success', true);",
+                                    "    pm.expect(jsonData).to.have.property('message');",
+                                    "    pm.expect(jsonData.message.toLowerCase()).to.include('eliminado');",
+                                    "});",
+                                    "",
+                                    "console.log('✅ CONTACTO ELIMINADO');",
+                                    "if (pm.response.code === 200) {",
+                                    "    console.log('  📝 Mensaje:', pm.response.json().message);",
+                                    "    console.log('  🗑️ Contacto eliminado correctamente');",
+                                    "}"
+                                ]
+                            }
+                        }
+                    ],
+                    "request": {
+                        "method": "DELETE",
+                        "header": [],
+                        "url": {
+                            "raw": "{{base_url}}/proveedores/{{proveedor_id}}/contactos/{{contacto_id}}",
+                            "host": [
+                                "{{base_url}}"
+                            ],
+                            "path": [
+                                "proveedores",
+                                "{{proveedor_id}}",
+                                "contactos",
+                                "{{contacto_id}}"
+                            ]
+                        },
+                        "description": "Eliminar un contacto específico"
+                    }
+                }
+            ],
+            "description": "Operaciones CRUD para contactos de proveedores"
+        },
+        {
+            "name": "🧪 TESTS AVANZADOS",
+            "item": [
+                {
+                    "name": "1. Test Paginación Completa",
+                    "event": [
+                        {
+                            "listen": "test",
+                            "script": {
+                                "type": "text/javascript",
+                                "exec": [
+                                    "pm.test('Status code is 200', function () {",
+                                    "    pm.response.to.have.status(200);",
+                                    "});",
+                                    "",
+                                    "pm.test('Pagination works correctly', function () {",
+                                    "    var jsonData = pm.response.json();",
+                                    "    pm.expect(jsonData.page).to.eql(2);",
+                                    "    pm.expect(jsonData.limit).to.eql(3);",
+                                    "    pm.expect(jsonData.data.length).to.be.at.most(3);",
+                                    "});",
+                                    "",
+                                    "pm.test('Total pages calculation is correct', function () {",
+                                    "    var response = pm.response.json();",
+                                    "    var expectedPages = Math.ceil(response.total / response.limit);",
+                                    "    pm.expect(response.totalPages).to.eql(expectedPages);",
+                                    "});",
+                                    "",
+                                    "console.log('📄 TEST DE PAGINACIÓN:');",
+                                    "if (pm.response.code === 200) {",
+                                    "    const response = pm.response.json();",
+                                    "    console.log('  📊 Página actual:', response.page);",
+                                    "    console.log('  📈 Total páginas:', response.totalPages);",
+                                    "    console.log('  📋 Registros por página:', response.limit);",
+                                    "    console.log('  📊 Total registros:', response.total);",
+                                    "    console.log('  📋 Registros en esta página:', response.data.length);",
+                                    "}"
+                                ]
+                            }
+                        }
+                    ],
+                    "request": {
+                        "method": "GET",
+                        "header": [],
+                        "url": {
+                            "raw": "{{base_url}}/proveedores?page=2&limit=3",
+                            "host": [
+                                "{{base_url}}"
+                            ],
+                            "path": [
+                                "proveedores"
+                            ],
+                            "query": [
+                                {
+                                    "key": "page",
+                                    "value": "2",
+                                    "description": "Segunda página"
+                                },
+                                {
+                                    "key": "limit",
+                                    "value": "3",
+                                    "description": "Solo 3 registros por página"
+                                }
+                            ]
+                        },
+                        "description": "Test de paginación con parámetros específicos"
+                    }
+                },
+                {
+                    "name": "2. Test Búsqueda con Texto",
+                    "event": [
+                        {
+                            "listen": "test",
+                            "script": {
+                                "type": "text/javascript",
+                                "exec": [
+                                    "pm.test('Status code is 200', function () {",
+                                    "    pm.response.to.have.status(200);",
+                                    "});",
+                                    "",
+                                    "pm.test('Search results contain search term', function () {",
+                                    "    var searchTerm = 'test';",
+                                    "    var data = pm.response.json().data;",
+                                    "    ",
+                                    "    data.forEach(proveedor => {",
+                                    "        var containsTerm = ",
+                                    "            proveedor.razon_social.toLowerCase().includes(searchTerm) ||",
+                                    "            proveedor.cuit.includes(searchTerm) ||",
+                                    "            (proveedor.email_general && proveedor.email_general.toLowerCase().includes(searchTerm));",
+                                    "        pm.expect(containsTerm).to.be.true;",
+                                    "    });",
+                                    "});",
+                                    "",
+                                    "console.log('🔍 TEST DE BÚSQUEDA POR TEXTO:');",
+                                    "if (pm.response.code === 200) {",
+                                    "    const results = pm.response.json().data;",
+                                    "    results.forEach((p, i) => {",
+                                    "        console.log(`  ${i+1}. ${p.razon_social} - ${p.cuit}`);",
+                                    "    });",
+                                    "}"
+                                ]
+                            }
+                        }
+                    ],
+                    "request": {
+                        "method": "GET",
+                        "header": [],
+                        "url": {
+                            "raw": "{{base_url}}/proveedores?search=test&limit=10",
+                            "host": [
+                                "{{base_url}}"
+                            ],
+                            "path": [
+                                "proveedores"
+                            ],
+                            "query": [
+                                {
+                                    "key": "search",
+                                    "value": "test",
+                                    "description": "Buscar proveedores que contengan 'test'"
+                                },
+                                {
+                                    "key": "limit",
+                                    "value": "10"
+                                }
+                            ]
+                        },
+                        "description": "Test de búsqueda por texto en múltiples campos"
+                    }
+                },
+                {
+                    "name": "3. Test Filtros Combinados",
+                    "event": [
+                        {
+                            "listen": "test",
+                            "script": {
+                                "type": "text/javascript",
+                                "exec": [
+                                    "pm.test('Status code is 200', function () {",
+                                    "    pm.response.to.have.status(200);",
+                                    "});",
+                                    "",
+                                    "pm.test('All results match combined filters', function () {",
+                                    "    var data = pm.response.json().data;",
+                                    "    ",
+                                    "    data.forEach(proveedor => {",
+                                    "        pm.expect(proveedor.tipo_proveedor).to.eql('Laboratorio');",
+                                    "        pm.expect(proveedor.activo).to.be.true;",
+                                    "    });",
+                                    "});",
+                                    "",
+                                    "console.log('🔧 TEST DE FILTROS COMBINADOS:');",
+                                    "if (pm.response.code === 200) {",
+                                    "    const response = pm.response.json();",
+                                    "    console.log('  🧪 Tipo: Laboratorio');",
+                                    "    console.log('  ✅ Estado: Activo');",
+                                    "    console.log('  📊 Resultados:', response.total);",
+                                    "    console.log('  📋 En esta página:', response.data.length);",
+                                    "}"
+                                ]
+                            }
+                        }
+                    ],
+                    "request": {
+                        "method": "GET",
+                        "header": [],
+                        "url": {
+                            "raw": "{{base_url}}/proveedores?tipo=Laboratorio&activo=true&page=1&limit=5",
+                            "host": [
+                                "{{base_url}}"
+                            ],
+                            "path": [
+                                "proveedores"
+                            ],
+                            "query": [
+                                {
+                                    "key": "tipo",
+                                    "value": "Laboratorio"
+                                },
+                                {
+                                    "key": "activo",
+                                    "value": "true"
+                                },
+                                {
+                                    "key": "page",
+                                    "value": "1"
+                                },
+                                {
+                                    "key": "limit",
+                                    "value": "5"
+                                }
+                            ]
+                        },
+                        "description": "Test de filtros combinados - tipo y estado"
+                    }
+                },
+                {
+                    "name": "4. Test Proveedor No Encontrado",
+                    "event": [
+                        {
+                            "listen": "test",
+                            "script": {
+                                "type": "text/javascript",
+                                "exec": [
+                                    "pm.test('Status code is 404', function () {",
+                                    "    pm.response.to.have.status(404);",
+                                    "});",
+                                    "",
+                                    "pm.test('Error response has correct structure', function () {",
+                                    "    var jsonData = pm.response.json();",
+                                    "    pm.expect(jsonData).to.have.property('success', false);",
+                                    "    pm.expect(jsonData).to.have.property('message');",
+                                    "    pm.expect(jsonData.message.toLowerCase()).to.include('no encontrado');",
+                                    "});",
+                                    "",
+                                    "console.log('✅ TEST 404 - PROVEEDOR NO ENCONTRADO');",
+                                    "console.log('  📝 Mensaje:', pm.response.json().message);"
+                                ]
+                            }
+                        }
+                    ],
+                    "request": {
+                        "method": "GET",
+                        "header": [],
+                        "url": {
+                            "raw": "{{base_url}}/proveedores/99999",
+                            "host": [
+                                "{{base_url}}"
+                            ],
+                            "path": [
+                                "proveedores",
+                                "99999"
+                            ]
+                        },
+                        "description": "Test de error 404 con ID que no existe"
+                    }
+                },
+                {
+                    "name": "5. Test Validación de Parámetros",
+                    "event": [
+                        {
+                            "listen": "test",
+                            "script": {
+                                "type": "text/javascript",
+                                "exec": [
+                                    "pm.test('Status code is 400 for invalid parameters', function () {",
+                                    "    pm.response.to.have.status(400);",
+                                    "});",
+                                    "",
+                                    "pm.test('Validation error mentions page parameter', function () {",
+                                    "    var jsonData = pm.response.json();",
+                                    "    pm.expect(jsonData).to.have.property('success', false);",
+                                    "    var hasPageError = jsonData.errors.some(e => e.param === 'page');",
+                                    "    pm.expect(hasPageError).to.be.true;",
+                                    "});",
+                                    "",
+                                    "console.log('✅ VALIDACIÓN DE PARÁMETROS FUNCIONANDO');",
+                                    "if (pm.response.code === 400) {",
+                                    "    const errors = pm.response.json().errors;",
+                                    "    console.log('📝 Errores de validación:');",
+                                    "    errors.forEach((error, i) => {",
+                                    "        console.log(`  ${i+1}. ${error.param}: ${error.msg}`);",
+                                    "    });",
+                                    "}"
+                                ]
+                            }
+                        }
+                    ],
+                    "request": {
+                        "method": "GET",
+                        "header": [],
+                        "url": {
+                            "raw": "{{base_url}}/proveedores?page=-1&limit=101&tipo=TipoInvalido",
+                            "host": [
+                                "{{base_url}}"
+                            ],
+                            "path": [
+                                "proveedores"
+                            ],
+                            "query": [
+                                {
+                                    "key": "page",
+                                    "value": "-1",
+                                    "description": "Página inválida (negativa)"
+                                },
+                                {
+                                    "key": "limit",
+                                    "value": "101",
+                                    "description": "Límite inválido (mayor a 100)"
+                                },
+                                {
+                                    "key": "tipo",
+                                    "value": "TipoInvalido",
+                                    "description": "Tipo de proveedor inválido"
+                                }
+                            ]
+                        },
+                        "description": "Test de validación de query parameters inválidos"
+                    }
+                }
+            ],
+            "description": "Tests avanzados para casos específicos y validaciones"
+        },
+        {
+            "name": "🗑️ CLEANUP",
+            "item": [
+                {
+                    "name": "1. Desactivar Proveedor de Test",
+                    "event": [
+                        {
+                            "listen": "test",
+                            "script": {
+                                "type": "text/javascript",
+                                "exec": [
+                                    "pm.test('Status code is 200', function () {",
+                                    "    pm.response.to.have.status(200);",
+                                    "});",
+                                    "",
+                                    "pm.test('Response indicates successful deactivation', function () {",
+                                    "    var jsonData = pm.response.json();",
+                                    "    pm.expect(jsonData).to.have.property('success', true);",
+                                    "    pm.expect(jsonData).to.have.property('message');",
+                                    "    pm.expect(jsonData.message.toLowerCase()).to.include('desactivado');",
+                                    "});",
+                                    "",
+                                    "console.log('🗑️ PROVEEDOR DESACTIVADO (CLEANUP)');",
+                                    "if (pm.response.code === 200) {",
+                                    "    console.log('  📝 Mensaje:', pm.response.json().message);",
+                                    "    console.log('  ✅ Cleanup completado exitosamente');",
+                                    "    console.log('  🔄 Proveedor de test desactivado');",
+                                    "}"
+                                ]
+                            }
+                        }
+                    ],
+                    "request": {
+                        "method": "DELETE",
+                        "header": [],
+                        "url": {
+                            "raw": "{{base_url}}/proveedores/{{proveedor_id}}",
+                            "host": [
+                                "{{base_url}}"
+                            ],
+                            "path": [
+                                "proveedores",
+                                "{{proveedor_id}}"
+                            ]
+                        },
+                        "description": "Desactivar el proveedor creado durante los tests (cleanup)"
+                    }
+                },
+                {
+                    "name": "2. Verificar Estadísticas Finales",
+                    "event": [
+                        {
+                            "listen": "test",
+                            "script": {
+                                "type": "text/javascript",
+                                "exec": [
+                                    "pm.test('Status code is 200', function () {",
+                                    "    pm.response.to.have.status(200);",
+                                    "});",
+                                    "",
+                                    "console.log('📊 ESTADÍSTICAS FINALES DESPUÉS DEL CLEANUP:');",
+                                    "if (pm.response.code === 200) {",
+                                    "    const stats = pm.response.json().data;",
+                                    "    console.log('  📈 Total proveedores:', stats.total_proveedores);",
+                                    "    console.log('  ✅ Activos:', stats.proveedores_activos);",
+                                    "    console.log('  ❌ Inactivos:', stats.proveedores_inactivos);",
+                                    "    console.log('  🧪 Laboratorios:', stats.laboratorios);",
+                                    "    console.log('  🏪 Droguerías:', stats.droguerias);",
+                                    "    console.log('  🔄 Ambos:', stats.ambos);",
+                                    "    console.log('  👥 Total contactos:', stats.total_contactos);",
+                                    "    console.log('');",
+                                    "    console.log('🎉 TESTS DE PROVEEDORES COMPLETADOS EXITOSAMENTE');",
+                                    "}"
+                                ]
+                            }
+                        }
+                    ],
+                    "request": {
+                        "method": "GET",
+                        "header": [],
+                        "url": {
+                            "raw": "{{base_url}}/proveedores/estadisticas",
+                            "host": [
+                                "{{base_url}}"
+                            ],
+                            "path": [
+                                "proveedores",
+                                "estadisticas"
+                            ]
+                        },
+                        "description": "Verificar estadísticas finales después del cleanup"
+                    }
+                }
+            ],
+            "description": "Limpieza de datos de test y verificación final"
+        },
+        {
+            "name": "🔍 DEBUG Y TROUBLESHOOTING",
+            "item": [
+                {
+                    "name": "1. Health Check API",
+                    "event": [
+                        {
+                            "listen": "test",
+                            "script": {
+                                "type": "text/javascript",
+                                "exec": [
+                                    "pm.test('API is healthy', function () {",
+                                    "    pm.response.to.have.status(200);",
+                                    "    var jsonData = pm.response.json();",
+                                    "    pm.expect(jsonData.status).to.eql('OK');",
+                                    "});",
+                                    "",
+                                    "console.log('🏥 HEALTH CHECK:');",
+                                    "if (pm.response.code === 200) {",
+                                    "    const data = pm.response.json();",
+                                    "    console.log('  ✅ Estado:', data.status);",
+                                    "    console.log('  📝 Mensaje:', data.message);",
+                                    "    console.log('  🕐 Timestamp:', data.timestamp);",
+                                    "} else {",
+                                    "    console.log('  ❌ API no está respondiendo correctamente');",
+                                    "}"
+                                ]
+                            }
+                        }
+                    ],
+                    "request": {
+                        "method": "GET",
+                        "header": [],
+                        "url": {
+                            "raw": "{{base_url}}/health",
+                            "host": [
+                                "{{base_url}}"
+                            ],
+                            "path": [
+                                "health"
+                            ]
+                        },
+                        "description": "Verificar que la API esté funcionando correctamente"
+                    }
+                },
+                {
+                    "name": "2. Verificar Variables de Colección",
+                    "event": [
+                        {
+                            "listen": "test",
+                            "script": {
+                                "type": "text/javascript",
+                                "exec": [
+                                    "console.log('🔧 VARIABLES DE COLECCIÓN:');",
+                                    "console.log('  🌐 Base URL:', pm.collectionVariables.get('base_url'));",
+                                    "console.log('  🔑 JWT Token:', pm.collectionVariables.get('jwt_token') ? 'Configurado ✅' : 'No configurado ❌');",
+                                    "console.log('  🏢 Proveedor ID:', pm.collectionVariables.get('proveedor_id'));",
+                                    "console.log('  👤 Contacto ID:', pm.collectionVariables.get('contacto_id'));",
+                                    "console.log('  📝 Test CUIT:', pm.collectionVariables.get('test_cuit'));",
+                                    "",
+                                    "// Verificar que las variables críticas estén configuradas",
+                                    "pm.test('Critical variables are set', function () {",
+                                    "    pm.expect(pm.collectionVariables.get('base_url')).to.not.be.undefined;",
+                                    "    pm.expect(pm.collectionVariables.get('jwt_token')).to.not.be.empty;",
+                                    "});",
+                                    "",
+                                    "if (!pm.collectionVariables.get('jwt_token')) {",
+                                    "    console.log('⚠️ ADVERTENCIA: Ejecutar primero el endpoint de Login');",
+                                    "}"
+                                ]
+                            }
+                        }
+                    ],
+                    "request": {
+                        "method": "GET",
+                        "header": [],
+                        "url": {
+                            "raw": "{{base_url}}/health",
+                            "host": [
+                                "{{base_url}}"
+                            ],
+                            "path": [
+                                "health"
+                            ]
+                        },
+                        "description": "Debug - verificar que todas las variables estén configuradas"
+                    }
+                },
+                {
+                    "name": "3. Test Conectividad Base de Datos",
+                    "event": [
+                        {
+                            "listen": "test",
+                            "script": {
+                                "type": "text/javascript",
+                                "exec": [
+                                    "pm.test('Database connectivity works', function () {",
+                                    "    pm.response.to.have.status(200);",
+                                    "    var jsonData = pm.response.json();",
+                                    "    pm.expect(jsonData.success).to.be.true;",
+                                    "    pm.expect(jsonData.data).to.have.property('total_proveedores');",
+                                    "});",
+                                    "",
+                                    "console.log('🗄️ TEST DE CONECTIVIDAD BD:');",
+                                    "if (pm.response.code === 200) {",
+                                    "    console.log('  ✅ Conexión a base de datos OK');",
+                                    "    console.log('  ✅ Tablas alt_* accesibles');",
+                                    "    console.log('  ✅ Consultas funcionando correctamente');",
+                                    "} else {",
+                                    "    console.log('  ❌ Problema de conectividad con la BD');",
+                                    "    console.log('  📝 Error:', pm.response.text());",
+                                    "}"
+                                ]
+                            }
+                        }
+                    ],
+                    "request": {
+                        "method": "GET",
+                        "header": [],
+                        "url": {
+                            "raw": "{{base_url}}/proveedores/estadisticas",
+                            "host": [
+                                "{{base_url}}"
+                            ],
+                            "path": [
+                                "proveedores",
+                                "estadisticas"
+                            ]
+                        },
+                        "description": "Verificar conectividad con base de datos mediante estadísticas"
+                    }
+                },
+                {
+                    "name": "4. Test de Autenticación",
+                    "event": [
+                        {
+                            "listen": "test",
+                            "script": {
+                                "type": "text/javascript",
+                                "exec": [
+                                    "pm.test('Status code is 401 without token', function () {",
+                                    "    pm.response.to.have.status(401);",
+                                    "});",
+                                    "",
+                                    "pm.test('Error message mentions token', function () {",
+                                    "    var jsonData = pm.response.json();",
+                                    "    pm.expect(jsonData.message.toLowerCase()).to.include('token');",
+                                    "});",
+                                    "",
+                                    "console.log('✅ AUTENTICACIÓN FUNCIONANDO CORRECTAMENTE');",
+                                    "console.log('  🔒 Sin token = 401 Unauthorized');",
+                                    "console.log('  📝 Mensaje:', pm.response.json().message);"
+                                ]
+                            }
+                        }
+                    ],
+                    "request": {
+                        "method": "GET",
+                        "header": [
+                            {
+                                "key": "Authorization",
+                                "value": "Bearer token_invalido",
+                                "description": "Token inválido para test"
+                            }
+                        ],
+                        "url": {
+                            "raw": "{{base_url}}/proveedores",
+                            "host": [
+                                "{{base_url}}"
+                            ],
+                            "path": [
+                                "proveedores"
+                            ]
+                        },
+                        "description": "Test de autenticación - token inválido debe retornar 401"
+                    }
+                }
+            ],
+            "description": "Herramientas de debug y resolución de problemas"
+        }
+    ],
+    "event": [
+        {
+            "listen": "prerequest",
+            "script": {
+                "type": "text/javascript",
+                "exec": [
+                    "// Script global que se ejecuta antes de cada request",
+                    "console.log('🚀 Ejecutando:', pm.info.requestName);",
+                    "",
+                    "// Verificar que el token esté configurado (excepto para login y health check)",
+                    "if (!pm.info.requestName.toLowerCase().includes('login') && ",
+                    "    !pm.info.requestName.toLowerCase().includes('health') &&",
+                    "    !pm.info.requestName.toLowerCase().includes('autenticación')) {",
+                    "    const token = pm.collectionVariables.get('jwt_token');",
+                    "    if (!token || token === '') {",
+                    "        console.log('⚠️ ADVERTENCIA: JWT Token no configurado. Ejecuta Login primero.');",
+                    "    }",
+                    "}",
+                    "",
+                    "// Agregar timestamp para debugging",
+                    "const now = new Date().toISOString();",
+                    "console.log('🕐 Timestamp:', now);"
+                ]
+            }
+        },
+        {
+            "listen": "test",
+            "script": {
+                "type": "text/javascript",
+                "exec": [
+                    "// Script global que se ejecuta después de cada response",
+                    "const responseTime = pm.response.responseTime;",
+                    "const statusCode = pm.response.code;",
+                    "const requestName = pm.info.requestName;",
+                    "",
+                    "console.log(`📊 ${requestName} | Status: ${statusCode} | ⏱️ ${responseTime}ms`);",
+                    "",
+                    "// Test global de performance",
+                    "pm.test('Response time is acceptable (< 5s)', function () {",
+                    "    pm.expect(pm.response.responseTime).to.be.below(5000);",
+                    "});",
+                    "",
+                    "// Test global de headers para responses JSON",
+                    "if (statusCode !== 401 && statusCode !== 404) {",
+                    "    pm.test('Response has JSON Content-Type', function () {",
+                    "        const contentType = pm.response.headers.get('Content-Type');",
+                    "        pm.expect(contentType).to.include('application/json');",
+                    "    });",
+                    "}",
+                    "",
+                    "// Logging contextual según el tipo de respuesta",
+                    "if (statusCode >= 500) {",
+                    "    console.log('🚨 ERROR SERVIDOR:', pm.response.text());",
+                    "} else if (statusCode >= 400) {",
+                    "    console.log('⚠️ Error cliente:', pm.response.json()?.message || 'Sin mensaje');",
+                    "} else if (statusCode >= 200 && statusCode < 300) {",
+                    "    console.log('✅ Exitoso');",
+                    "    ",
+                    "    // Log específico para diferentes tipos de endpoints",
+                    "    if (requestName.toLowerCase().includes('crear') && statusCode === 201) {",
+                    "        console.log('🆕 Recurso creado exitosamente');",
+                    "    } else if (requestName.toLowerCase().includes('actualizar')) {",
+                    "        console.log('🔄 Recurso actualizado exitosamente');",
+                    "    } else if (requestName.toLowerCase().includes('eliminar') || requestName.toLowerCase().includes('desactivar')) {",
+                    "        console.log('🗑️ Recurso eliminado/desactivado exitosamente');",
+                    "    }",
+                    "}",
+                    "",
+                    "// Separador visual en console",
+                    "console.log('─'.repeat(60));"
+                ]
+            }
+        }
+    ]
+}
