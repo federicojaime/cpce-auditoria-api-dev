@@ -577,20 +577,330 @@ export const generarExcel = async (req, res) => {
 
         const resultados = await executeQuery(sql, [fechaInicio, fechaFin]);
 
-        // Aquí implementarías la generación del Excel con una librería como exceljs
-        // Por ahora retornamos los datos en JSON
-        res.json({
-            success: true,
-            data: resultados,
-            periodo: `${mes}/${año}`,
-            total: resultados.length
+        // Validar que hay datos
+        if (!resultados || resultados.length === 0) {
+            return res.status(404).json({
+                success: false,
+                message: 'No se encontraron auditorías para el período seleccionado'
+            });
+        }
+
+        // Crear libro de Excel
+        const workbook = new ExcelJS.Workbook();
+        const worksheet = workbook.addWorksheet('Auditorías');
+
+        // Configurar propiedades del libro
+        workbook.creator = 'Sistema CPCE';
+        workbook.created = new Date();
+        workbook.modified = new Date();
+
+        // Agregar título y encabezado
+        worksheet.addRow(['REPORTE DE AUDITORÍAS']);
+        worksheet.addRow(['Período:', `${mes}/${año}`]);
+        worksheet.addRow(['Total de registros:', resultados.length]);
+        worksheet.addRow(['Fecha de generación:', new Date().toLocaleString('es-AR')]);
+        worksheet.addRow([]);
+
+        // Definir encabezados de columnas
+        const headerRow = worksheet.addRow([
+            'Apellido',
+            'Nombre',
+            'DNI',
+            'Sexo',
+            'Fecha Nacimiento',
+            'Médico',
+            'Matrícula',
+            'Estado Auditoría',
+            'Fecha Receta',
+            'Fecha Auditoría',
+            'Auditor'
+        ]);
+
+        // Estilo del encabezado
+        headerRow.font = { bold: true, color: { argb: 'FFFFFFFF' } };
+        headerRow.fill = {
+            type: 'pattern',
+            pattern: 'solid',
+            fgColor: { argb: 'FF0066CC' }
+        };
+        headerRow.alignment = { vertical: 'middle', horizontal: 'center' };
+
+        // Agregar datos
+        resultados.forEach(row => {
+            worksheet.addRow([
+                row.apellido,
+                row.nombre,
+                row.dni,
+                row.sexo,
+                row.fecha_nacimiento,
+                row.medico,
+                row.matricula,
+                row.estado_auditoria,
+                row.fecha_receta,
+                row.fecha_auditoria,
+                row.auditor
+            ]);
         });
+
+        // Ajustar ancho de columnas
+        worksheet.columns = [
+            { width: 20 }, // Apellido
+            { width: 20 }, // Nombre
+            { width: 12 }, // DNI
+            { width: 8 },  // Sexo
+            { width: 15 }, // Fecha Nacimiento
+            { width: 25 }, // Médico
+            { width: 12 }, // Matrícula
+            { width: 20 }, // Estado
+            { width: 15 }, // Fecha Receta
+            { width: 15 }, // Fecha Auditoría
+            { width: 25 }  // Auditor
+        ];
+
+        // Aplicar bordes a todas las celdas con datos
+        const dataStartRow = 6;
+        const dataEndRow = dataStartRow + resultados.length;
+        for (let row = dataStartRow; row <= dataEndRow; row++) {
+            for (let col = 1; col <= 11; col++) {
+                const cell = worksheet.getCell(row, col);
+                cell.border = {
+                    top: { style: 'thin' },
+                    left: { style: 'thin' },
+                    bottom: { style: 'thin' },
+                    right: { style: 'thin' }
+                };
+            }
+        }
+
+        // Generar el archivo en buffer
+        const buffer = await workbook.xlsx.writeBuffer();
+
+        // Configurar headers para descarga
+        const filename = `auditorias_${año}_${mes}.xlsx`;
+        res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+        res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+        res.setHeader('Content-Length', buffer.length);
+
+        // Enviar el archivo
+        res.send(buffer);
 
     } catch (error) {
         console.error('Error generando Excel:', error);
         res.status(500).json({
             error: true,
-            message: 'Error interno del servidor'
+            message: 'Error al generar el archivo Excel',
+            details: error.message
+        });
+    }
+};
+
+// EXPORTAR EXCEL CON FILTROS (GET) - Maneja ?tipo=alto-costo
+export const exportarExcelFiltrado = async (req, res) => {
+    try {
+        const { tipo, fechaDesde, fechaHasta, estado } = req.query;
+
+        console.log('Exportando Excel con filtros:', { tipo, fechaDesde, fechaHasta, estado });
+
+        // Construir consulta SQL base
+        let sql = `SELECT DISTINCT
+                    a.id,
+                    CONCAT(UPPER(SUBSTRING(b.apellido, 1, 1)), LOWER(SUBSTRING(b.apellido, 2))) AS apellido,
+                    CONCAT(UPPER(SUBSTRING(b.nombre, 1, 1)), LOWER(SUBSTRING(b.nombre, 2))) AS nombre,
+                    b.dni,
+                    DATE_FORMAT(a.fecha_origen, '%d-%m-%Y') AS fecha,
+                    CONCAT(
+                        CONCAT(UPPER(SUBSTRING(c.nombre, 1, 1)), LOWER(SUBSTRING(c.nombre, 2))), ' ',
+                        CONCAT(UPPER(SUBSTRING(c.apellido, 1, 1)), LOWER(SUBSTRING(c.apellido, 2)))
+                    ) AS medico,
+                    c.matricula,
+                    a.renglones,
+                    a.cantmeses AS meses,
+                    CASE
+                        WHEN a.auditado IS NULL THEN 'Pendiente'
+                        WHEN a.auditado = 1 THEN 'Aprobada'
+                        WHEN a.auditado = 0 THEN 'Rechazada'
+                        ELSE 'Desconocido'
+                    END AS estado,
+                    CONCAT(
+                        IFNULL(CONCAT(UPPER(SUBSTRING(f.nombre, 1, 1)), LOWER(SUBSTRING(f.nombre, 2))), ''), ' ',
+                        IFNULL(CONCAT(UPPER(SUBSTRING(f.apellido, 1, 1)), LOWER(SUBSTRING(f.apellido, 2))), '')
+                    ) AS auditor,
+                    IFNULL(DATE_FORMAT(MAX(e.fecha_auditoria), '%d-%m-%Y'), '-') AS fecha_auditoria
+                FROM rec_auditoria a
+                INNER JOIN rec_paciente b ON a.idpaciente = b.id
+                INNER JOIN tmp_person c ON a.idprescriptor = c.matricula
+                LEFT JOIN rec_prescrmedicamento e ON a.idreceta1 = e.idreceta
+                LEFT JOIN user_au f ON a.auditadopor = f.id
+                WHERE a.idobrasoc = 20 AND a.renglones > 0`;
+
+        const params = [];
+
+        // Filtro por tipo
+        if (tipo === 'alto-costo') {
+            sql += ` AND a.auditado IS NULL`;
+        } else if (tipo === 'historicas') {
+            sql += ` AND a.auditado IS NOT NULL`;
+        }
+
+        // Filtro por fechas
+        if (fechaDesde) {
+            sql += ` AND a.fecha_origen >= ?`;
+            params.push(fechaDesde);
+        }
+        if (fechaHasta) {
+            sql += ` AND a.fecha_origen <= ?`;
+            params.push(fechaHasta);
+        }
+
+        // Filtro por estado
+        if (estado === 'pendiente') {
+            sql += ` AND a.auditado IS NULL`;
+        } else if (estado === 'aprobada') {
+            sql += ` AND a.auditado = 1`;
+        } else if (estado === 'rechazada') {
+            sql += ` AND a.auditado = 0`;
+        }
+
+        // Agregar GROUP BY para MAX()
+        sql += ` GROUP BY a.id, b.apellido, b.nombre, b.dni, a.fecha_origen,
+                 c.nombre, c.apellido, c.matricula, a.renglones, a.cantmeses,
+                 a.auditado, f.nombre, f.apellido`;
+
+        sql += ` ORDER BY a.fecha_origen DESC, b.apellido, b.nombre`;
+
+        const resultados = await executeQuery(sql, params);
+
+        // Validar que hay datos
+        if (!resultados || resultados.length === 0) {
+            return res.status(404).json({
+                success: false,
+                message: 'No se encontraron auditorías con los filtros seleccionados'
+            });
+        }
+
+        // Crear libro de Excel
+        const workbook = new ExcelJS.Workbook();
+        const worksheet = workbook.addWorksheet('Auditorías');
+
+        // Configurar propiedades
+        workbook.creator = 'Sistema CPCE';
+        workbook.created = new Date();
+
+        // Título
+        const tipoTexto = tipo === 'alto-costo' ? 'AUDITORÍAS PENDIENTES - ALTO COSTO' :
+                          tipo === 'historicas' ? 'AUDITORÍAS HISTÓRICAS' :
+                          'REPORTE DE AUDITORÍAS';
+
+        worksheet.addRow([tipoTexto]);
+        worksheet.mergeCells('A1:L1');
+        worksheet.getCell('A1').font = { size: 16, bold: true };
+        worksheet.getCell('A1').alignment = { horizontal: 'center' };
+
+        worksheet.addRow([]);
+        worksheet.addRow(['Filtros aplicados:']);
+        if (tipo) worksheet.addRow(['Tipo:', tipo]);
+        if (fechaDesde) worksheet.addRow(['Desde:', fechaDesde]);
+        if (fechaHasta) worksheet.addRow(['Hasta:', fechaHasta]);
+        worksheet.addRow(['Fecha de generación:', new Date().toLocaleString('es-AR')]);
+        worksheet.addRow(['Total de registros:', resultados.length]);
+        worksheet.addRow([]);
+
+        // Encabezados
+        const headerRow = worksheet.addRow([
+            'ID',
+            'Apellido',
+            'Nombre',
+            'DNI',
+            'Fecha Receta',
+            'Médico',
+            'Matrícula',
+            'Renglones',
+            'Meses',
+            'Estado',
+            'Auditor',
+            'Fecha Auditoría'
+        ]);
+
+        // Estilo del encabezado
+        headerRow.font = { bold: true, color: { argb: 'FFFFFFFF' } };
+        headerRow.fill = {
+            type: 'pattern',
+            pattern: 'solid',
+            fgColor: { argb: 'FF0066CC' }
+        };
+        headerRow.alignment = { vertical: 'middle', horizontal: 'center' };
+
+        // Agregar datos
+        resultados.forEach(row => {
+            worksheet.addRow([
+                row.id,
+                row.apellido,
+                row.nombre,
+                row.dni,
+                row.fecha,
+                row.medico,
+                row.matricula,
+                row.renglones,
+                row.meses,
+                row.estado,
+                row.auditor,
+                row.fecha_auditoria || '-'
+            ]);
+        });
+
+        // Ajustar anchos
+        worksheet.columns = [
+            { width: 8 },  // ID
+            { width: 20 }, // Apellido
+            { width: 20 }, // Nombre
+            { width: 12 }, // DNI
+            { width: 15 }, // Fecha Receta
+            { width: 25 }, // Médico
+            { width: 12 }, // Matrícula
+            { width: 12 }, // Renglones
+            { width: 10 }, // Meses
+            { width: 15 }, // Estado
+            { width: 25 }, // Auditor
+            { width: 15 }  // Fecha Auditoría
+        ];
+
+        // Aplicar bordes
+        const dataStartRow = 8;
+        const dataEndRow = dataStartRow + resultados.length;
+        for (let row = dataStartRow; row <= dataEndRow; row++) {
+            for (let col = 1; col <= 12; col++) {
+                const cell = worksheet.getCell(row, col);
+                cell.border = {
+                    top: { style: 'thin' },
+                    left: { style: 'thin' },
+                    bottom: { style: 'thin' },
+                    right: { style: 'thin' }
+                };
+            }
+        }
+
+        // Generar archivo
+        const buffer = await workbook.xlsx.writeBuffer();
+
+        // Nombre del archivo
+        const timestamp = new Date().toISOString().split('T')[0];
+        const tipoArchivo = tipo ? `_${tipo}` : '';
+        const filename = `auditorias${tipoArchivo}_${timestamp}.xlsx`;
+
+        // Headers para descarga
+        res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+        res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+        res.setHeader('Content-Length', buffer.length);
+
+        // Enviar archivo
+        res.send(buffer);
+
+    } catch (error) {
+        console.error('Error exportando Excel:', error);
+        res.status(500).json({
+            error: true,
+            message: 'Error al generar el archivo Excel',
+            details: error.message
         });
     }
 };

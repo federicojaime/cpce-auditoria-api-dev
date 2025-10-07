@@ -11,6 +11,11 @@ import authRoutes from './routes/auth.js';
 import auditoriasRoutes from './routes/auditorias.js';
 import trialRoutes from './routes/trial.js';
 import proveedoresRoutes from './routes/proveedores.js';
+// Módulo de Compras
+import presupuestosRoutes from './routes/presupuestos.js';
+import ordenesCompraRoutes from './routes/ordenesCompra.js';
+import notificacionesRoutes from './routes/notificaciones.js';
+import reportesComprasRoutes from './routes/reportesCompras.js';
 // import usuariosRoutes from './routes/usuarios.js'; // ❌ Comentar si no existe
 
 dotenv.config();
@@ -46,6 +51,11 @@ app.use('/api/auth', authRoutes);
 app.use('/api/auditorias', auditoriasRoutes);
 app.use('/api/trial', trialRoutes);
 app.use('/api/proveedores', proveedoresRoutes);
+// Módulo de Compras
+app.use('/api/presupuestos', presupuestosRoutes);
+app.use('/api/ordenes-compra', ordenesCompraRoutes);
+app.use('/api/notificaciones', notificacionesRoutes);
+app.use('/api/reportes-compras', reportesComprasRoutes);
 // app.use('/api/usuarios', usuariosRoutes); // ❌ Comentar si no existe
 
 // Ruta de health check
@@ -67,6 +77,11 @@ app.get('/', (req, res) => {
             auditorias: '/api/auditorias',
             trial: '/api/trial',
             proveedores: '/api/proveedores',
+            // Módulo de Compras
+            presupuestos: '/api/presupuestos',
+            ordenesCompra: '/api/ordenes-compra',
+            notificaciones: '/api/notificaciones',
+            reportesCompras: '/api/reportes-compras',
             health: '/health'
         }
     });

@@ -1,7 +1,9 @@
 {
   "permissions": {
     "allow": [
-      "Bash(wc:*)"
+      "Bash(wc:*)",
+      "Bash(dir controllers)",
+      "Bash(dir:*)"
     ],
     "deny": [],
     "ask": []

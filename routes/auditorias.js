@@ -9,6 +9,7 @@ router.use(auth);
 
 // Historial de paciente
 router.get('/historial-paciente', auditoriasController.getHistorialPaciente);
+router.post('/historial-paciente/excel', auditoriasController.exportarHistorialPaciente);
 
 // Auditorías pendientes
 router.get('/pendientes', auditoriasController.getPendientes);
@@ -29,6 +30,7 @@ router.post('/listado', auditoriasController.getListado);
 router.post('/paciente', auditoriasController.getHistorialPacientePOST);
 
 // Generar Excel
+router.get('/excel', auditoriasController.exportarExcelFiltrado); // GET con query params
 router.post('/excel', auditoriasController.generarExcel);
 router.post('/excel-historial', auditoriasController.exportarHistorialPaciente);
 router.post('/generar-excel-datos', auditoriasController.generarExcelConDatos);

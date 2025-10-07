@@ -12,10 +12,10 @@
     "prod:dev": "copy .env.production .env && nodemon server.js"
   },
   "dependencies": {
+    "@sparticuz/chromium": "^121.0.0",
     "bcrypt": "^6.0.0",
     "bcryptjs": "^2.4.3",
     "canvas": "^3.2.0",
-    "@sparticuz/chromium": "^121.0.0",
     "cors": "^2.8.5",
     "dotenv": "^16.3.1",
     "exceljs": "^4.4.0",
