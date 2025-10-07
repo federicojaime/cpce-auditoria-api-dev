@@ -1,6 +1,6 @@
-// controllers/proveedoresController.js - VERSIÓN CORREGIDA
-const pool = require('../config/database');
-const { validationResult } = require('express-validator');
+// controllers/proveedoresController.js - ES6 MODULES VERSION
+import { validationResult } from 'express-validator';
+import { pool, executeQuery } from '../config/database.js';
 
 // Función helper para manejar errores de validación
 const handleValidationErrors = (req, res) => {
@@ -16,11 +16,10 @@ const handleValidationErrors = (req, res) => {
 };
 
 // Obtener todos los proveedores con paginación y filtros
-const getProveedores = async (req, res) => {
+export const getProveedores = async (req, res) => {
     console.log('GET /api/proveedores - Query params:', req.query);
 
     try {
-        // ✅ AGREGADO: Validar errores de express-validator
         const validationError = handleValidationErrors(req, res);
         if (validationError) return;
 
@@ -60,17 +59,17 @@ const getProveedores = async (req, res) => {
 
         // Obtener el total de registros
         const countQuery = `
-            SELECT COUNT(*) as total 
+            SELECT COUNT(*) as total
             FROM alt_proveedor p
             WHERE ${whereClause}
         `;
 
-        const [countResult] = await pool.query(countQuery, queryParams);
+        const countResult = await executeQuery(countQuery, queryParams);
         const total = countResult[0].total;
 
         // Obtener los proveedores con paginación
         const dataQuery = `
-            SELECT 
+            SELECT
                 p.id_proveedor,
                 p.razon_social,
                 p.cuit,
@@ -94,14 +93,14 @@ const getProveedores = async (req, res) => {
         `;
 
         const dataParams = [...queryParams, limit, offset];
-        const [proveedores] = await pool.query(dataQuery, dataParams);
+        const proveedores = await executeQuery(dataQuery, dataParams);
 
         const response = {
             success: true,
             data: proveedores,
-            page: page, // ✅ CORREGIDO: Era currentPage, ahora es page
+            page: page,
             totalPages: Math.ceil(total / limit),
-            total: total, // ✅ CORREGIDO: Cambié totalRecords por total para consistencia
+            total: total,
             limit
         };
 
@@ -118,16 +117,15 @@ const getProveedores = async (req, res) => {
 };
 
 // Obtener un proveedor por ID
-const getProveedorById = async (req, res) => {
+export const getProveedorById = async (req, res) => {
     try {
-        // ✅ AGREGADO: Validar errores
         const validationError = handleValidationErrors(req, res);
         if (validationError) return;
 
         const { id } = req.params;
 
         const query = `
-            SELECT 
+            SELECT
                 p.id_proveedor,
                 p.razon_social,
                 p.cuit,
@@ -145,7 +143,7 @@ const getProveedorById = async (req, res) => {
             WHERE p.id_proveedor = ?
         `;
 
-        const [rows] = await pool.query(query, [id]);
+        const rows = await executeQuery(query, [id]);
 
         if (rows.length === 0) {
             return res.status(404).json({
@@ -156,7 +154,7 @@ const getProveedorById = async (req, res) => {
 
         // Obtener contactos del proveedor
         const contactosQuery = `
-            SELECT 
+            SELECT
                 id_contacto,
                 nombre,
                 apellido,
@@ -170,7 +168,7 @@ const getProveedorById = async (req, res) => {
             ORDER BY principal DESC, nombre ASC
         `;
 
-        const [contactos] = await pool.query(contactosQuery, [id]);
+        const contactos = await executeQuery(contactosQuery, [id]);
 
         const proveedor = {
             ...rows[0],
@@ -193,8 +191,7 @@ const getProveedorById = async (req, res) => {
 };
 
 // Crear un nuevo proveedor
-const createProveedor = async (req, res) => {
-    // ✅ AGREGADO: Validar errores primero
+export const createProveedor = async (req, res) => {
     const validationError = handleValidationErrors(req, res);
     if (validationError) return;
 
@@ -216,7 +213,7 @@ const createProveedor = async (req, res) => {
         } = req.body;
 
         // Verificar si ya existe un proveedor con el mismo CUIT
-        const [existing] = await pool.query(
+        const existing = await executeQuery(
             'SELECT id_proveedor FROM alt_proveedor WHERE cuit = ?',
             [cuit]
         );
@@ -228,7 +225,6 @@ const createProveedor = async (req, res) => {
             });
         }
 
-        // ✅ MEJORADO: Manejo de conexión más seguro
         connection = await pool.getConnection();
 
         try {
@@ -237,9 +233,9 @@ const createProveedor = async (req, res) => {
             // Insertar proveedor
             const insertProveedorQuery = `
                 INSERT INTO alt_proveedor (
-                    razon_social, 
-                    cuit, 
-                    tipo_proveedor, 
+                    razon_social,
+                    cuit,
+                    tipo_proveedor,
                     email_general,
                     telefono_general,
                     direccion_calle,
@@ -270,7 +266,6 @@ const createProveedor = async (req, res) => {
 
             // Insertar contactos si los hay
             if (contactos && contactos.length > 0) {
-                // ✅ MEJORADO: Validar que solo haya un contacto principal
                 const principalCount = contactos.filter(c => c.principal).length;
                 if (principalCount > 1) {
                     throw new Error('Solo puede haber un contacto principal');
@@ -326,15 +321,13 @@ const createProveedor = async (req, res) => {
             error: process.env.NODE_ENV === 'development' ? error.message : 'Error interno'
         });
     } finally {
-        // ✅ CRÍTICO: Siempre liberar la conexión
         if (connection) connection.release();
     }
 };
 
 // Actualizar un proveedor
-const updateProveedor = async (req, res) => {
+export const updateProveedor = async (req, res) => {
     try {
-        // ✅ AGREGADO: Validar errores
         const validationError = handleValidationErrors(req, res);
         if (validationError) return;
 
@@ -342,7 +335,7 @@ const updateProveedor = async (req, res) => {
         const updates = req.body;
 
         // Verificar si el proveedor existe
-        const [existing] = await pool.query(
+        const existing = await executeQuery(
             'SELECT id_proveedor FROM alt_proveedor WHERE id_proveedor = ?',
             [id]
         );
@@ -356,7 +349,7 @@ const updateProveedor = async (req, res) => {
 
         // Verificar si el CUIT ya existe en otro proveedor
         if (updates.cuit) {
-            const [cuitExists] = await pool.query(
+            const cuitExists = await executeQuery(
                 'SELECT id_proveedor FROM alt_proveedor WHERE cuit = ? AND id_proveedor != ?',
                 [updates.cuit, id]
             );
@@ -391,12 +384,12 @@ const updateProveedor = async (req, res) => {
         values.push(id);
 
         const query = `
-            UPDATE alt_proveedor 
+            UPDATE alt_proveedor
             SET ${updateFields.join(', ')}
             WHERE id_proveedor = ?
         `;
 
-        await pool.query(query, values);
+        await executeQuery(query, values);
 
         res.json({
             success: true,
@@ -414,15 +407,14 @@ const updateProveedor = async (req, res) => {
 };
 
 // Eliminar (desactivar) un proveedor
-const deleteProveedor = async (req, res) => {
+export const deleteProveedor = async (req, res) => {
     try {
-        // ✅ AGREGADO: Validar errores
         const validationError = handleValidationErrors(req, res);
         if (validationError) return;
 
         const { id } = req.params;
 
-        const [result] = await pool.query(
+        const result = await executeQuery(
             'UPDATE alt_proveedor SET activo = 0, fecha_modificacion = NOW() WHERE id_proveedor = ?',
             [id]
         );
@@ -450,16 +442,15 @@ const deleteProveedor = async (req, res) => {
 };
 
 // Obtener contactos de un proveedor
-const getContactosProveedor = async (req, res) => {
+export const getContactosProveedor = async (req, res) => {
     try {
-        // ✅ AGREGADO: Validar errores
         const validationError = handleValidationErrors(req, res);
         if (validationError) return;
 
         const { id } = req.params;
 
         const query = `
-            SELECT 
+            SELECT
                 c.id_contacto,
                 c.id_proveedor,
                 c.nombre,
@@ -476,7 +467,7 @@ const getContactosProveedor = async (req, res) => {
             ORDER BY c.principal DESC, c.nombre ASC
         `;
 
-        const [contactos] = await pool.query(query, [id]);
+        const contactos = await executeQuery(query, [id]);
 
         res.json({
             success: true,
@@ -494,8 +485,7 @@ const getContactosProveedor = async (req, res) => {
 };
 
 // Crear un contacto para un proveedor
-const createContacto = async (req, res) => {
-    // ✅ AGREGADO: Validar errores
+export const createContacto = async (req, res) => {
     const validationError = handleValidationErrors(req, res);
     if (validationError) return;
 
@@ -513,7 +503,7 @@ const createContacto = async (req, res) => {
         } = req.body;
 
         // Verificar que el proveedor existe
-        const [proveedor] = await pool.query(
+        const proveedor = await executeQuery(
             'SELECT id_proveedor FROM alt_proveedor WHERE id_proveedor = ?',
             [id]
         );
@@ -525,7 +515,6 @@ const createContacto = async (req, res) => {
             });
         }
 
-        // ✅ MEJORADO: Manejo de conexión más seguro
         connection = await pool.getConnection();
 
         try {
@@ -586,14 +575,12 @@ const createContacto = async (req, res) => {
             error: process.env.NODE_ENV === 'development' ? error.message : 'Error interno'
         });
     } finally {
-        // ✅ CRÍTICO: Siempre liberar la conexión
         if (connection) connection.release();
     }
 };
 
 // Actualizar un contacto
-const updateContacto = async (req, res) => {
-    // ✅ AGREGADO: Validar errores
+export const updateContacto = async (req, res) => {
     const validationError = handleValidationErrors(req, res);
     if (validationError) return;
 
@@ -603,7 +590,6 @@ const updateContacto = async (req, res) => {
         const { id, contactoId } = req.params;
         const updates = req.body;
 
-        // ✅ MEJORADO: Manejo de conexión más seguro
         connection = await pool.getConnection();
 
         try {
@@ -638,7 +624,7 @@ const updateContacto = async (req, res) => {
             values.push(contactoId);
 
             const query = `
-                UPDATE alt_contacto_proveedor 
+                UPDATE alt_contacto_proveedor
                 SET ${updateFields.join(', ')}
                 WHERE id_contacto = ?
             `;
@@ -672,21 +658,19 @@ const updateContacto = async (req, res) => {
             error: process.env.NODE_ENV === 'development' ? error.message : 'Error interno'
         });
     } finally {
-        // ✅ CRÍTICO: Siempre liberar la conexión
         if (connection) connection.release();
     }
 };
 
 // Eliminar un contacto
-const deleteContacto = async (req, res) => {
+export const deleteContacto = async (req, res) => {
     try {
-        // ✅ AGREGADO: Validar errores
         const validationError = handleValidationErrors(req, res);
         if (validationError) return;
 
         const { contactoId } = req.params;
 
-        const [result] = await pool.query(
+        const result = await executeQuery(
             'DELETE FROM alt_contacto_proveedor WHERE id_contacto = ?',
             [contactoId]
         );
@@ -714,7 +698,7 @@ const deleteContacto = async (req, res) => {
 };
 
 // Obtener tipos de proveedores
-const getTiposProveedores = async (req, res) => {
+export const getTiposProveedores = async (req, res) => {
     try {
         const tipos = [
             { value: 'Laboratorio', label: 'Laboratorio' },
@@ -738,7 +722,7 @@ const getTiposProveedores = async (req, res) => {
 };
 
 // Obtener estadísticas
-const getEstadisticas = async (req, res) => {
+export const getEstadisticas = async (req, res) => {
     try {
         const queries = {
             total: 'SELECT COUNT(*) as count FROM alt_proveedor',
@@ -753,7 +737,7 @@ const getEstadisticas = async (req, res) => {
         const results = {};
 
         for (const [key, query] of Object.entries(queries)) {
-            const [rows] = await pool.query(query);
+            const rows = await executeQuery(query);
             results[key] = rows[0].count;
         }
 
@@ -781,15 +765,13 @@ const getEstadisticas = async (req, res) => {
 };
 
 // Búsqueda rápida
-const buscarProveedores = async (req, res) => {
+export const buscarProveedores = async (req, res) => {
     try {
-        // ✅ AGREGADO: Validar errores de express-validator
         const validationError = handleValidationErrors(req, res);
         if (validationError) return;
 
         const { q, limit = 10 } = req.query;
 
-        // ✅ AGREGADO: Validación adicional en controlador
         if (!q || q.trim().length < 2) {
             return res.status(400).json({
                 success: false,
@@ -798,7 +780,7 @@ const buscarProveedores = async (req, res) => {
         }
 
         const query = `
-            SELECT 
+            SELECT
                 id_proveedor,
                 razon_social,
                 cuit,
@@ -807,8 +789,8 @@ const buscarProveedores = async (req, res) => {
                 telefono_general
             FROM alt_proveedor
             WHERE activo = 1 AND (
-                razon_social LIKE ? OR 
-                cuit LIKE ? OR 
+                razon_social LIKE ? OR
+                cuit LIKE ? OR
                 email_general LIKE ?
             )
             ORDER BY razon_social ASC
@@ -816,7 +798,7 @@ const buscarProveedores = async (req, res) => {
         `;
 
         const searchPattern = `%${q.trim()}%`;
-        const [proveedores] = await pool.query(query, [
+        const proveedores = await executeQuery(query, [
             searchPattern,
             searchPattern,
             searchPattern,
@@ -836,19 +818,4 @@ const buscarProveedores = async (req, res) => {
             error: process.env.NODE_ENV === 'development' ? error.message : 'Error interno'
         });
     }
-};
-
-module.exports = {
-    getProveedores,
-    getProveedorById,
-    createProveedor,
-    updateProveedor,
-    deleteProveedor,
-    getContactosProveedor,
-    createContacto,
-    updateContacto,
-    deleteContacto,
-    getTiposProveedores,
-    getEstadisticas,
-    buscarProveedores
 };

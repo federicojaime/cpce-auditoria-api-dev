@@ -9,6 +9,8 @@ import rateLimit from 'express-rate-limit';
 // Importar rutas (solo las que existen)
 import authRoutes from './routes/auth.js';
 import auditoriasRoutes from './routes/auditorias.js';
+import trialRoutes from './routes/trial.js';
+import proveedoresRoutes from './routes/proveedores.js';
 // import usuariosRoutes from './routes/usuarios.js'; // ❌ Comentar si no existe
 
 dotenv.config();
@@ -42,6 +44,8 @@ app.use((req, res, next) => {
 // Rutas
 app.use('/api/auth', authRoutes);
 app.use('/api/auditorias', auditoriasRoutes);
+app.use('/api/trial', trialRoutes);
+app.use('/api/proveedores', proveedoresRoutes);
 // app.use('/api/usuarios', usuariosRoutes); // ❌ Comentar si no existe
 
 // Ruta de health check
@@ -61,6 +65,8 @@ app.get('/', (req, res) => {
         endpoints: {
             auth: '/api/auth',
             auditorias: '/api/auditorias',
+            trial: '/api/trial',
+            proveedores: '/api/proveedores',
             health: '/health'
         }
     });
