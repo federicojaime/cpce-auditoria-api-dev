@@ -33,4 +33,11 @@ router.post('/:solicitudId/adjudicar', [
 // GET /api/presupuestos/estadisticas - Estadísticas
 router.get('/estadisticas', presupuestosController.obtenerEstadisticas);
 
+// GET /api/presupuestos/auditorias-disponibles - Auditorías aprobadas para solicitar presupuesto
+router.get('/auditorias-disponibles', [
+    query('search').optional().isString(),
+    query('page').optional().isInt({ min: 1 }),
+    query('limit').optional().isInt({ min: 1, max: 100 })
+], presupuestosController.obtenerAuditoriasDisponibles);
+
 export default router;

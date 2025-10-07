@@ -359,6 +359,64 @@ Authorization: Bearer <token>
 
 ## 💰 MÓDULO DE PRESUPUESTOS
 
+### Obtener auditorías disponibles para presupuesto
+```http
+GET /api/presupuestos/auditorias-disponibles
+Authorization: Bearer <token>
+```
+
+**Query params opcionales:**
+- `search`: búsqueda por apellido, nombre, DNI o médico
+- `page`: número de página (default: 1)
+- `limit`: registros por página (default: 20, máx: 100)
+
+**Respuesta:**
+```json
+{
+  "success": true,
+  "data": [
+    {
+      "id": 123,
+      "apellido": "Rodriguez",
+      "nombre": "Carlos",
+      "dni": "12345678",
+      "paciente_email": "carlos@email.com",
+      "paciente_telefono": "011-9999-8888",
+      "fecha": "15-10-2025",
+      "medico": "Dr. Juan Pérez MP-12345",
+      "renglones": 3,
+      "meses": 6,
+      "auditor": "María López",
+      "medicamentos_aprobados": 5,
+      "medicamentos": [
+        {
+          "id": 456,
+          "nombreComercial": "Rituximab 500mg",
+          "monodroga": "Rituximab",
+          "presentacion": "Ampolla 500mg",
+          "cantidad": 10,
+          "observacion": ""
+        }
+      ]
+    }
+  ],
+  "pagination": {
+    "total": 45,
+    "page": 1,
+    "limit": 20,
+    "totalPages": 3
+  }
+}
+```
+
+**Notas:**
+- Solo muestra auditorías con `auditado = 1` (aprobadas)
+- Filtro automático: `renglones > 0` (Alto Costo)
+- Incluye solo medicamentos con `estado_auditoria = 1` (aprobados)
+- Incluye datos del paciente para notificaciones posteriores
+
+---
+
 ### Solicitar presupuesto
 ```http
 POST /api/presupuestos/solicitar
