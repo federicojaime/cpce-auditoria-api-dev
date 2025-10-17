@@ -1,0 +1,751 @@
+import { executeQuery, getConnection } from '../config/database.js';
+import ExcelJS from 'exceljs';
+import nodemailer from 'nodemailer';
+import { promises as fs } from 'fs';
+import path from 'path';
+import PDFUtils from '../utils/pdfUtils.js';
+import QRCode from 'qrcode';
+import { generarHTMLReceta, generarHTMLRecetaDuplicado, generarHTMLRecetaRechazada } from './auditoriasController.js';
+
+// Función auxiliar para calcular edad
+export function calculateAge(fechaNacimiento) {
+    const today = new Date();
+    const birthDate = new Date(fechaNacimiento);
+    let age = today.getFullYear() - birthDate.getFullYear();
+    const monthDiff = today.getMonth() - birthDate.getMonth();
+
+    if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birthDate.getDate())) {
+        age--;
+    }
+
+    return age;
+}
+
+// AUDITORÍAS PENDIENTES DE ALTO COSTO
+export const getPendientes = async (req, res) => {
+    try {
+        const { rol } = req.user; // Del JWT token
+        const { search = '', page = 1, limit = 10 } = req.query;
+
+        // Construir consulta base con normalización - FILTRO: Solo recetas en rec_receta_alto_costo
+        let sql = `SELECT a.id,
+               CONCAT(UPPER(SUBSTRING(b.apellido, 1, 1)), LOWER(SUBSTRING(b.apellido, 2))) AS apellido,
+               CONCAT(UPPER(SUBSTRING(b.nombre, 1, 1)), LOWER(SUBSTRING(b.nombre, 2))) AS nombre,
+               b.dni,
+               DATE_FORMAT(a.fecha_origen, '%d-%m-%Y') AS fecha,
+               CONCAT(
+                   CONCAT(UPPER(SUBSTRING(c.nombre, 1, 1)), LOWER(SUBSTRING(c.nombre, 2))), ' ',
+                   CONCAT(UPPER(SUBSTRING(c.apellido, 1, 1)), LOWER(SUBSTRING(c.apellido, 2))), ' MP-', c.matricula
+               ) AS medico,
+               a.renglones, a.cantmeses AS meses, a.auditado
+               FROM rec_auditoria a
+               INNER JOIN rec_paciente b ON a.idpaciente=b.id
+               INNER JOIN tmp_person c ON a.idprescriptor=c.matricula
+               INNER JOIN rec_receta_alto_costo d ON a.idreceta1=d.idreceta
+               WHERE a.renglones>0 AND a.auditado IS NULL AND idobrasoc = 20 AND (a.estado IS NULL OR a.estado != 1)`;
+
+        // Si el rol es 9 (médico auditor), solo ver las bloqueadas
+        if (rol == 9) {
+            sql += " AND a.bloqueadaxauditor IS NOT NULL";
+        }
+
+        // Agregar búsqueda si existe
+        let params = [];
+        if (search && search.trim()) {
+            sql += " AND (b.apellido LIKE ? OR b.nombre LIKE ? OR b.dni LIKE ? OR CONCAT(c.nombre, ' ', c.apellido) LIKE ?)";
+            const searchParam = `%${search.trim()}%`;
+            params.push(searchParam, searchParam, searchParam, searchParam);
+        }
+
+        // 1. PRIMERO: Consulta para contar total de registros
+        let countSql = `SELECT COUNT(*) as total
+                    FROM rec_auditoria a
+                    INNER JOIN rec_paciente b ON a.idpaciente=b.id
+                    INNER JOIN tmp_person c ON a.idprescriptor=c.matricula
+                    INNER JOIN rec_receta_alto_costo d ON a.idreceta1=d.idreceta
+                    WHERE a.renglones>0 AND a.auditado IS NULL AND idobrasoc = 20 AND (a.estado IS NULL OR a.estado != 1)`;
+
+        // Si el rol es 9 (médico auditor), agregar también a count
+        if (rol == 9) {
+            countSql += " AND a.bloqueadaxauditor IS NOT NULL";
+        }
+
+        // Agregar búsqueda al count también
+        if (search && search.trim()) {
+            countSql += " AND (b.apellido LIKE ? OR b.nombre LIKE ? OR b.dni LIKE ? OR CONCAT(c.nombre, ' ', c.apellido) LIKE ?)";
+        }
+
+        console.log('[ALTO COSTO] Count SQL:', countSql);
+        console.log('[ALTO COSTO] Params:', params);
+
+        const countResult = await executeQuery(countSql, params);
+        const total = countResult[0]?.total || 0;
+        const totalPages = Math.ceil(total / limit);
+
+        console.log('[ALTO COSTO] Total encontrado:', total);
+        console.log('[ALTO COSTO] Total páginas:', totalPages);
+
+        // 2. SEGUNDO: Agregar ordenamiento y paginación a la consulta principal
+        sql += " ORDER BY d.fechaemision ASC";
+
+        const offset = (page - 1) * limit;
+        sql += ` LIMIT ${parseInt(limit)} OFFSET ${parseInt(offset)}`;
+
+        console.log('[ALTO COSTO] Data SQL:', sql);
+
+        const resultados = await executeQuery(sql, params);
+
+        console.log('[ALTO COSTO] Resultados encontrados:', resultados.length);
+
+        res.json({
+            success: true,
+            data: resultados,
+            total: total,
+            page: parseInt(page),
+            limit: parseInt(limit),
+            totalPages: totalPages
+        });
+
+    } catch (error) {
+        console.error('[ALTO COSTO] Error obteniendo auditorías pendientes:', error);
+        res.status(500).json({
+            error: true,
+            message: 'Error interno del servidor'
+        });
+    }
+};
+
+// AUDITORÍAS HISTÓRICAS DE ALTO COSTO
+export const getHistoricas = async (req, res) => {
+    try {
+        const { search = '', page = 1, limit = 10 } = req.query;
+
+        // Convertir a números para evitar problemas
+        const pageNum = parseInt(page);
+        const limitNum = parseInt(limit);
+        const offset = (pageNum - 1) * limitNum;
+
+        console.log('[ALTO COSTO] Parámetros recibidos:', { search, page: pageNum, limit: limitNum, offset });
+
+        // Construir consulta base para contar - FILTRO: Solo recetas en rec_receta_alto_costo
+        let countSql = `SELECT COUNT(DISTINCT a.id) as total
+                        FROM rec_auditoria a
+                        INNER JOIN rec_paciente b ON a.idpaciente=b.id
+                        INNER JOIN tmp_person c ON a.idprescriptor=c.matricula
+                        INNER JOIN rec_receta_alto_costo d ON a.idreceta1=d.idreceta
+                        INNER JOIN rec_prescrmedicamento_alto_costo e ON a.idreceta1 = e.idreceta
+                        LEFT JOIN user_au au ON a.auditadopor = au.id
+                        WHERE a.renglones>0 AND a.auditado IS NOT NULL AND a.idobrasoc = 20 AND (a.estado IS NULL OR a.estado != 1)`;
+
+        // Construir consulta principal con normalización de mayúsculas
+        let sql = `SELECT DISTINCT a.id,
+                   CONCAT(UPPER(SUBSTRING(b.apellido, 1, 1)), LOWER(SUBSTRING(b.apellido, 2))) AS apellido,
+                   CONCAT(UPPER(SUBSTRING(b.nombre, 1, 1)), LOWER(SUBSTRING(b.nombre, 2))) AS nombre,
+                   b.dni,
+                   DATE_FORMAT(a.fecha_origen, '%d-%m-%Y') AS fecha,
+                   CONCAT(
+                       CONCAT(UPPER(SUBSTRING(c.nombre, 1, 1)), LOWER(SUBSTRING(c.nombre, 2))), ' ',
+                       CONCAT(UPPER(SUBSTRING(c.apellido, 1, 1)), LOWER(SUBSTRING(c.apellido, 2))), ' MP-', c.matricula
+                   ) AS medico,
+                   a.renglones,
+                   a.cantmeses AS meses,
+                   a.auditado,
+                   a.auditadopor,
+                   DATE_FORMAT(MAX(e.fecha_auditoria), '%d-%m-%Y') AS fechaAuditoria,
+                   CONCAT(
+                       CONCAT(UPPER(SUBSTRING(au.nombre, 1, 1)), LOWER(SUBSTRING(au.nombre, 2))), ' ',
+                       CONCAT(UPPER(SUBSTRING(au.apellido, 1, 1)), LOWER(SUBSTRING(au.apellido, 2)))
+                   ) AS auditor
+                   FROM rec_auditoria a
+                   INNER JOIN rec_paciente b ON a.idpaciente = b.id
+                   INNER JOIN tmp_person c ON a.idprescriptor = c.matricula
+                   INNER JOIN rec_receta_alto_costo d ON a.idreceta1 = d.idreceta
+                   INNER JOIN rec_prescrmedicamento_alto_costo e ON a.idreceta1 = e.idreceta
+                   LEFT JOIN user_au au ON a.auditadopor = au.id
+                   WHERE a.renglones>0 AND a.auditado IS NOT NULL AND a.idobrasoc = 20 AND (a.estado IS NULL OR a.estado != 1)`;
+
+        // Agregar búsqueda si existe
+        let params = [];
+        if (search && search.trim()) {
+            const searchCondition = ` AND (b.apellido LIKE ? OR b.nombre LIKE ? OR b.dni LIKE ? OR
+                                    CONCAT(c.nombre, ' ', c.apellido) LIKE ? OR
+                                    CONCAT(au.nombre, ' ', au.apellido) LIKE ?)`;
+            countSql += searchCondition;
+            sql += searchCondition;
+            const searchPattern = `%${search}%`;
+            params.push(searchPattern, searchPattern, searchPattern, searchPattern, searchPattern);
+        }
+
+        // Agregar GROUP BY antes del ORDER BY
+        sql += ` GROUP BY a.id, b.apellido, b.nombre, b.dni, a.fecha_origen,
+                 c.nombre, c.apellido, c.matricula, a.renglones, a.cantmeses,
+                 a.auditado, a.auditadopor, au.nombre, au.apellido`;
+
+        // Primero obtener el total
+        console.log('[ALTO COSTO] Count SQL:', countSql);
+        const countResult = await executeQuery(countSql, params);
+        const total = countResult[0]?.total || 0;
+        const totalPages = Math.ceil(total / limitNum);
+
+        console.log('[ALTO COSTO] Total registros:', total, 'Total páginas:', totalPages);
+
+        // Agregar ordenamiento y LIMIT/OFFSET con concatenación directa
+        sql += ` ORDER BY MAX(e.fecha_auditoria) DESC LIMIT ${limitNum} OFFSET ${offset}`;
+
+        console.log('[ALTO COSTO] Data SQL:', sql);
+
+        const resultados = await executeQuery(sql, params);
+
+        console.log('[ALTO COSTO] Registros obtenidos:', resultados.length);
+
+        res.json({
+            success: true,
+            data: resultados,
+            total: total,
+            page: pageNum,
+            limit: limitNum,
+            totalPages: totalPages
+        });
+
+    } catch (error) {
+        console.error('[ALTO COSTO] Error obteniendo auditorías históricas:', error);
+        res.status(500).json({
+            success: false,
+            error: true,
+            message: 'Error interno del servidor',
+            details: error.message
+        });
+    }
+};
+
+// OBTENER AUDITORÍA COMPLETA DE ALTO COSTO
+export const getAuditoriaCompleta = async (req, res) => {
+    try {
+        const { id } = req.params;
+
+        console.log('[ALTO COSTO] Obteniendo auditoría ID:', id);
+
+        // Verificar que el ID sea válido
+        if (!id || isNaN(id)) {
+            return res.status(400).json({
+                success: false,
+                message: `ID inválido: ${id}. Debe ser un número.`
+            });
+        }
+
+        // 1. Verificar si existe la auditoría de alto costo (verifica que exista en rec_receta_alto_costo)
+        const sqlVerificar = `
+            SELECT COUNT(*) as existe
+            FROM rec_auditoria a
+            INNER JOIN rec_receta_alto_costo r ON a.idreceta1 = r.idreceta
+            WHERE a.id = ?
+        `;
+        const existeResult = await executeQuery(sqlVerificar, [id]);
+
+        if (existeResult[0].existe === 0) {
+            return res.status(404).json({
+                success: false,
+                message: `No existe una auditoría de alto costo con ID: ${id}`
+            });
+        }
+
+        // 2. OBTENER DATOS BÁSICOS DE LA AUDITORÍA
+        const sqlAuditoria = `
+            SELECT
+                a.id,
+                a.idpaciente,
+                a.idprescriptor,
+                a.fecha_origen,
+                a.renglones,
+                a.cantmeses,
+                a.auditado,
+                a.bloqueadaxauditor,
+                a.nota,
+                a.idreceta1,
+                a.idreceta2,
+                a.idreceta3,
+                a.idobrasoc
+            FROM rec_auditoria a
+            WHERE a.id = ?
+        `;
+
+        const auditoriaResult = await executeQuery(sqlAuditoria, [id]);
+
+        if (!auditoriaResult || auditoriaResult.length === 0) {
+            return res.status(404).json({
+                success: false,
+                message: 'Auditoría de alto costo no encontrada'
+            });
+        }
+
+        const auditoria = auditoriaResult[0];
+
+        // 3. OBTENER DATOS DEL PACIENTE
+        const sqlPaciente = `
+            SELECT
+                p.id,
+                CONCAT(UPPER(SUBSTRING(p.apellido, 1, 1)), LOWER(SUBSTRING(p.apellido, 2))) as apellido,
+                CONCAT(UPPER(SUBSTRING(p.nombre, 1, 1)), LOWER(SUBSTRING(p.nombre, 2))) as nombre,
+                p.dni,
+                p.sexo,
+                DATE_FORMAT(p.fecnac, '%d/%m/%Y') as fecha_nacimiento,
+                TIMESTAMPDIFF(YEAR, p.fecnac, CURDATE()) as edad,
+                p.telefono,
+                p.email,
+                p.talla,
+                p.peso
+            FROM rec_paciente p
+            WHERE p.id = ?
+        `;
+
+        const pacienteResult = await executeQuery(sqlPaciente, [auditoria.idpaciente]);
+        const paciente = pacienteResult[0] || {};
+
+        // 4. OBTENER RECETAS DE ALTO COSTO
+        const recetasIds = [auditoria.idreceta1, auditoria.idreceta2, auditoria.idreceta3].filter(Boolean);
+
+        let recetas = [];
+        if (recetasIds.length > 0) {
+            const placeholders = recetasIds.map(() => '?').join(',');
+            const sqlRecetas = `
+                SELECT
+                    r.idreceta,
+                    DATE_FORMAT(r.fechaemision, '%d/%m/%Y') as fechaemision,
+                    r.diagnostico,
+                    r.diagnostico2
+                FROM rec_receta_alto_costo r
+                WHERE r.idreceta IN (${placeholders})
+            `;
+            recetas = await executeQuery(sqlRecetas, recetasIds);
+        }
+
+        // 5. OBTENER MEDICAMENTOS DE ALTO COSTO
+        let medicamentos = [];
+        if (recetasIds.length > 0) {
+            const placeholders = recetasIds.map(() => '?').join(',');
+            const sqlMedicamentos = `
+                SELECT
+                    pm.idrecetamedic,
+                    pm.idreceta,
+                    pm.codigo,
+                    pm.cantprescripta,
+                    pm.posologia,
+                    pm.porcentajecobertura,
+                    pm.estado_auditoria,
+                    pm.observacion,
+                    vm.nombre as nombre_comercial,
+                    md.descripcion as monodroga,
+                    vm.presentacion
+                FROM rec_prescrmedicamento_alto_costo pm
+                LEFT JOIN vad_manual vm ON pm.codigo = vm.troquel
+                LEFT JOIN vad_manextra me ON vm.nro_registro = me.nro_registro
+                LEFT JOIN vad_monodro md ON me.cod_droga = md.codigo
+                WHERE pm.idreceta IN (${placeholders})
+                ORDER BY pm.idreceta, pm.nro_orden
+            `;
+            medicamentos = await executeQuery(sqlMedicamentos, recetasIds);
+        }
+
+        // 6. OBTENER DATOS DEL MÉDICO
+        const sqlMedico = `
+            SELECT
+                t.matricula,
+                CONCAT(
+                    CONCAT(UPPER(SUBSTRING(t.nombre, 1, 1)), LOWER(SUBSTRING(t.nombre, 2))), ' ',
+                    CONCAT(UPPER(SUBSTRING(t.apellido, 1, 1)), LOWER(SUBSTRING(t.apellido, 2)))
+                ) as nombre_completo,
+                e.especialidad
+            FROM tmp_person t
+            LEFT JOIN tmp_especialistas e ON t.matricula = e.matricula
+            WHERE t.matricula = ?
+        `;
+        const medicoResult = await executeQuery(sqlMedico, [auditoria.idprescriptor]);
+        const medico = medicoResult[0] || {};
+
+        res.json({
+            success: true,
+            auditoria: {
+                ...auditoria,
+                paciente,
+                medico,
+                recetas,
+                medicamentos
+            }
+        });
+
+    } catch (error) {
+        console.error('[ALTO COSTO] Error obteniendo auditoría completa:', error);
+        res.status(500).json({
+            success: false,
+            message: 'Error interno del servidor',
+            error: error.message
+        });
+    }
+};
+
+// PROCESAR AUDITORÍA DE ALTO COSTO (Aprobar/Rechazar)
+export const procesarAuditoria = async (req, res) => {
+    let connection = null;
+
+    try {
+        const { id } = req.params;
+        const { userId, rol } = req.user;
+        const {
+            chequedos = '',
+            nochequeados = '',
+            cobert1, cobert2, cobert3, cobert4,
+            cobert2_1, cobert2_2, cobert2_3, cobert2_4,
+            nota = '',
+            estadoIdentidad = 0,
+            mesesSeleccionados = '{}'
+        } = req.body;
+
+        console.log('[ALTO COSTO] Procesando auditoría ID:', id);
+        console.log('[ALTO COSTO] Body recibido:', req.body);
+        console.log('[ALTO COSTO] Usuario:', { userId, rol });
+
+        connection = await getConnection();
+
+        // Parse meses seleccionados
+        let mesesObj = {};
+        try {
+            mesesObj = JSON.parse(mesesSeleccionados);
+        } catch (e) {
+            console.error('[ALTO COSTO] Error parseando mesesSeleccionados:', e);
+        }
+
+        // Procesar medicamentos aprobados
+        const aprobados = chequedos.split(',').filter(Boolean);
+        const rechazados = nochequeados.split(',').filter(Boolean);
+
+        console.log('[ALTO COSTO] Medicamentos aprobados procesados:', aprobados.map(item => {
+            const [idReceta, nroOrden] = item.split('_');
+            return { idReceta, nroOrden, original: item };
+        }));
+        console.log('[ALTO COSTO] Medicamentos rechazados procesados:', rechazados.map(item => {
+            const [idReceta, nroOrden] = item.split('_');
+            return { idReceta, nroOrden, original: item };
+        }));
+
+        let necesitaFarmalink = 0;
+
+        // PROCESAR MEDICAMENTOS APROBADOS
+        for (const item of aprobados) {
+            const [idReceta, nroOrden] = item.split('_');
+            const cobertura = cobert1 || 50;
+            const cobertura2 = cobert2_1 || 'CE';
+
+            const sqlUpdate = `
+                UPDATE rec_prescrmedicamento_alto_costo
+                SET estado_auditoria = 1,
+                    porcentajecobertura = ?,
+                    cobertura2 = ?,
+                    fecha_auditoria = NOW(),
+                    id_auditor = ?,
+                    observacion = COALESCE(?, observacion)
+                WHERE idreceta = ? AND nro_orden = ?
+            `;
+
+            const params = [
+                parseInt(cobertura) || 50,
+                cobertura2 || 'CE',
+                userId,
+                nota || null,
+                idReceta,
+                nroOrden
+            ];
+
+            await connection.execute(sqlUpdate, params);
+            console.log(`[ALTO COSTO] Medicamento aprobado: ${item} → ${idReceta}-${nroOrden}`);
+        }
+
+        // PROCESAR MEDICAMENTOS RECHAZADOS
+        for (const item of rechazados) {
+            const [idReceta, nroOrden] = item.split('_');
+
+            const sqlUpdate = `
+                UPDATE rec_prescrmedicamento_alto_costo
+                SET estado_auditoria = 2,
+                    fecha_auditoria = NOW(),
+                    id_auditor = ?,
+                    observacion = ?
+                WHERE idreceta = ? AND nro_orden = ?
+            `;
+
+            await connection.execute(sqlUpdate, [userId, nota, idReceta, nroOrden]);
+            console.log(`[ALTO COSTO] Medicamento rechazado: ${item}`);
+        }
+
+        // Actualizar la auditoría principal
+        const sqlUpdateAuditoria = `
+            UPDATE rec_auditoria
+            SET auditado = NOW(),
+                auditadopor = ?,
+                nota = ?
+            WHERE id = ?
+        `;
+
+        await connection.execute(sqlUpdateAuditoria, [userId, nota, id]);
+
+        console.log(`[ALTO COSTO] Auditoría procesada: Estado APROBADO, Necesita Farmalink: ${necesitaFarmalink}`);
+
+        res.json({
+            success: true,
+            message: 'Auditoría de alto costo procesada exitosamente',
+            necesitaFarmalink,
+            aprobados: aprobados.length,
+            rechazados: rechazados.length
+        });
+
+    } catch (error) {
+        console.error('[ALTO COSTO] Error procesando auditoría:', error);
+        res.status(500).json({
+            success: false,
+            message: 'Error procesando auditoría de alto costo',
+            error: error.message
+        });
+    } finally {
+        if (connection) {
+            connection.release();
+        }
+    }
+};
+
+// GENERAR PDF DE ALTO COSTO
+export const generarPDF = async (req, res) => {
+    let connection = null;
+
+    try {
+        const { id } = req.params;
+        const { estado = "0" } = req.body;
+
+        console.log(`[ALTO COSTO] Iniciando generación de PDF para auditoría ${id}`);
+
+        connection = await getConnection();
+
+        // 1. Obtener datos de la auditoría de ALTO COSTO (verifica JOIN con rec_receta_alto_costo)
+        const sqlAuditoria = `
+            SELECT a.*
+            FROM rec_auditoria a
+            INNER JOIN rec_receta_alto_costo r ON a.idreceta1 = r.idreceta
+            WHERE a.id = ?
+        `;
+        const [auditoriaResult] = await connection.execute(sqlAuditoria, [id]);
+
+        if (!auditoriaResult || auditoriaResult.length === 0) {
+            return res.status(404).json({
+                success: false,
+                message: 'Auditoría de alto costo no encontrada'
+            });
+        }
+
+        const auditoria = auditoriaResult[0];
+        const ciclo = auditoria.cantmeses;
+
+        console.log(`[ALTO COSTO] Generando PDF para ${ciclo} meses`);
+
+        // 2. Generar HTML del PDF
+        let htmlContent = '';
+        let medicamentosAutorizados = 0;
+
+        // Generar QR
+        const nombreArchivo = `audinro${id}.pdf`;
+        const isDev = process.env.NODE_ENV !== 'production';
+        const urlPDF = isDev
+            ? `http://localhost:${process.env.PORT || 3000}/pdfs/${nombreArchivo}`
+            : `https://test1.recetasalud.ar/audi/tmp/${nombreArchivo}`;
+        const qrCodeDataURL = await QRCode.toDataURL(urlPDF);
+
+        // Procesar cada receta del ciclo
+        for (let i = 0; i < ciclo; i++) {
+            const nroReceta = `idreceta${i + 1}`;
+            const idreceta = auditoria[nroReceta];
+
+            if (!idreceta) continue;
+
+            // Obtener datos de la receta de ALTO COSTO
+            const sqlReceta = `
+                SELECT r.fechaemision, r.diagnostico, r.idobrasocafiliado,
+                       p.dni, p.apellido, p.nombre, p.sexo, p.fecnac,
+                       o.sigla, p.nromatriculadoc,
+                       pp.apellido AS medape, pp.nombre AS mednom, r.matricprescr
+                  FROM rec_receta_alto_costo AS r
+            INNER JOIN rec_paciente AS p ON r.idpaciente = p.id
+            INNER JOIN rec_obrasoc AS o ON o.id = r.idobrasocafiliado
+            INNER JOIN tmp_person AS pp ON pp.matricula = r.matricprescr
+                 WHERE r.idreceta = ?
+            `;
+            const [recetaResult] = await connection.execute(sqlReceta, [idreceta]);
+
+            if (!recetaResult || recetaResult.length === 0) continue;
+
+            const receta = recetaResult[0];
+
+            // Configurar tabla según obra social
+            let tablavadem = 'vademecum';
+            let logoHeader = 'cmpc.jpg';
+
+            switch (receta.idobrasocafiliado) {
+                case 156:
+                    tablavadem = 'vad_muni';
+                    logoHeader = '156.jpg';
+                    break;
+                case 20:
+                    tablavadem = 'vad_020';
+                    logoHeader = '20.jpg';
+                    break;
+            }
+
+            // Obtener medicamentos de ALTO COSTO
+            const sqlMedicamentos = `
+                SELECT p.idreceta, p.nro_orden,
+                       DATE_FORMAT(r.fechaemision, '%d-%m-%Y') as fecha,
+                       DATE_FORMAT(DATE_ADD(r.fechaemision, INTERVAL 30 DAY), '%d-%m-%Y') as fechavto,
+                       p.cantprescripta, p.posologia,
+                       v.monodroga, v.nombre_comercial, v.presentacion,
+                       v.tipo_venta, p.estado_auditoria,
+                       p.porcentajecobertura as cobertura, p.cobertura2,
+                       p.numero_farmalink, p.autorizacion_especial
+                  FROM rec_prescrmedicamento_alto_costo p
+            INNER JOIN ${tablavadem} v ON p.codigo = v.codigo
+            INNER JOIN rec_receta_alto_costo r ON p.idreceta = r.idreceta
+                 WHERE p.idreceta = ?
+              ORDER BY p.nro_orden
+            `;
+            const [medicamentosResult] = await connection.execute(sqlMedicamentos, [idreceta]);
+
+            if (!medicamentosResult || medicamentosResult.length === 0) continue;
+
+            // Procesar identidad del paciente
+            let identidadPaciente = `<b>${receta.apellido} ${receta.nombre}</b> DNI: ${receta.dni}`;
+            if (estado == "1") {
+                const fechaNac = new Date(receta.fecnac);
+                const fechaFormateada = fechaNac.toLocaleDateString('es-ES').replace(/\//g, '');
+                identidadPaciente = `${receta.sexo}${receta.nombre.substring(0, 2).toUpperCase()}${receta.apellido.substring(0, 2).toUpperCase()}${fechaFormateada}`;
+            }
+
+            // Generar HTML para cada medicamento
+            for (const medicamento of medicamentosResult) {
+                if (medicamento.estado_auditoria == 1) {
+                    medicamentosAutorizados++;
+                }
+
+                const numeroReceta = medicamento.numero_farmalink || medicamento.idreceta;
+                const numeroDisplay = `${numeroReceta}-${medicamento.nro_orden}`;
+
+                let autorizacionEspecialInfo = '';
+                if (medicamento.autorizacion_especial) {
+                    autorizacionEspecialInfo = `
+                        <div style="background-color: #f0f0f0; padding: 5px; border: 1px solid #ccc; margin: 5px 0;">
+                            <b>AUTORIZACIÓN ESPECIAL:</b> ${medicamento.autorizacion_especial}
+                        </div>
+                    `;
+                }
+
+                const codigoBarras = await PDFUtils.generarCodigoBarras(numeroDisplay);
+                const codigoBarrasAfiliado = await PDFUtils.generarCodigoBarras(receta.nromatriculadoc);
+
+                htmlContent += generarHTMLReceta({
+                    logoHeader,
+                    numeroDisplay,
+                    autorizacionEspecialInfo,
+                    fecha: medicamento.fecha,
+                    identidadPaciente,
+                    obraSocial: receta.sigla,
+                    nroMatricula: receta.nromatriculadoc,
+                    medicamento,
+                    diagnostico: receta.diagnostico,
+                    qrCode: qrCodeDataURL,
+                    firma: '',
+                    medico: `${receta.mednom} ${receta.medape}`,
+                    matricula: receta.matricprescr,
+                    especialidad: '',
+                    codigoBarras,
+                    codigoBarrasAfiliado,
+                    fechaVence: medicamento.fechavto
+                });
+
+                // Duplicado para tipo_venta 3
+                if (medicamento.tipo_venta == 3) {
+                    htmlContent += generarHTMLRecetaDuplicado({
+                        logoHeader,
+                        numeroDisplay,
+                        autorizacionEspecialInfo,
+                        fecha: medicamento.fecha,
+                        identidadPaciente,
+                        obraSocial: receta.sigla,
+                        nroMatricula: receta.nromatriculadoc,
+                        medicamento,
+                        diagnostico: receta.diagnostico,
+                        qrCode: qrCodeDataURL,
+                        firma: '',
+                        medico: `${receta.mednom} ${receta.medape}`,
+                        matricula: receta.matricprescr,
+                        especialidad: '',
+                        codigoBarras,
+                        codigoBarrasAfiliado,
+                        fechaVence: medicamento.fechavto
+                    });
+                }
+            }
+        }
+
+        if (!htmlContent) {
+            return res.status(400).json({
+                success: false,
+                message: 'No hay contenido para generar el PDF'
+            });
+        }
+
+        // 3. Generar PDF
+        const pdfBuffer = await PDFUtils.generarPDFDesdeHTML(htmlContent);
+
+        // 4. Guardar PDF
+        let rutaPrincipal;
+        if (isDev) {
+            rutaPrincipal = path.join(process.cwd(), 'pdfs-generated');
+        } else {
+            rutaPrincipal = `/var/www/test1.recetasalud.ar/audi/tmp/`;
+        }
+
+        const rutaAzure = `/mnt/fscpcess01/prod/`;
+
+        // Crear directorio principal
+        await fs.mkdir(rutaPrincipal, { recursive: true }).catch(() => { });
+
+        // Guardar en ruta principal
+        await fs.writeFile(path.join(rutaPrincipal, nombreArchivo), pdfBuffer);
+
+        // En producción, guardar también en Azure
+        if (!isDev) {
+            await fs.mkdir(rutaAzure, { recursive: true }).catch(() => { });
+            await fs.writeFile(path.join(rutaAzure, nombreArchivo), pdfBuffer);
+        }
+
+        console.log(`[ALTO COSTO] PDF generado exitosamente: ${nombreArchivo}`);
+        console.log(`[ALTO COSTO] Guardado en: ${rutaPrincipal}`);
+
+        res.json({
+            success: true,
+            message: 'PDF de alto costo generado correctamente',
+            data: {
+                nombreArchivo,
+                url: urlPDF,
+                medicamentosAutorizados,
+                rutaLocal: isDev ? rutaPrincipal : undefined
+            }
+        });
+
+    } catch (error) {
+        console.error('[ALTO COSTO] Error generando PDF:', error);
+        res.status(500).json({
+            success: false,
+            message: 'Error interno al generar PDF de alto costo',
+            error: error.message
+        });
+    } finally {
+        if (connection) {
+            connection.release();
+        }
+    }
+};

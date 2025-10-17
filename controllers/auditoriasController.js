@@ -4,6 +4,7 @@ import nodemailer from 'nodemailer';
 import { promises as fs } from 'fs';
 import path from 'path';
 import PDFUtils from '../utils/pdfUtils.js';
+import QRCode from 'qrcode';
 
 
 
@@ -1393,7 +1394,7 @@ export const procesarAuditoria = async (req, res) => {
                     cobertura2 = ?,
                     fecha_auditoria = NOW(),
                     id_auditor = ?,
-                    observacion = COALESCE(?, observacion),
+                    observacion = COALESCE(?, observacion)
                     /* 🔥 COMENTADO: , pendiente_farmalink = 1 */
                 WHERE idreceta = ? AND nro_orden = ?
             `;
@@ -2653,18 +2654,20 @@ export function generarHTMLReceta(datos) {
         <table width="100%">
             <thead>
                 <tr>
-                    <th colspan="2" width="50%" align="left"><font size="1.2em">Receta Electrónica</font></th>
-                    <th colspan="4" width="50%" align="right"><font size="0.8em">ORIGINAL</font></th>
-                </tr> 
+                    <th colspan="2" width="50%" align="left"><font size="2">Receta Electrónica</font></th>
+                    <th colspan="4" width="50%" align="right"><font size="1.5">ORIGINAL</font></th>
+                </tr>
             </thead>
             <tbody>
                 <tr>
                     <td colspan="6" width="100%"><hr style="border: 1px solid #000;" /></td>
-                </tr>  
+                </tr>
                 <tr>
-                    <td colspan="2" width="25%"><img src="https://test1.recetasalud.ar/logo/${datos.logoHeader}" width="150px"></td>
-                    <td colspan="2" width="50%"><h2>Nro: ${datos.numeroDisplay}</h2>${datos.autorizacionEspecialInfo}</td>
-                    <td colspan="2" width="25%" align="right"><h2>Fecha: ${datos.fecha}</h2></td>
+                    <td colspan="2" width="25%" style="background-color: #f5f5f5; padding: 10px;">
+                        <img src="https://test1.recetasalud.ar/assets/images/logocmpc-blanci.png" width="120px" style="filter: drop-shadow(2px 2px 4px rgba(0,0,0,0.3));">
+                    </td>
+                    <td colspan="2" width="50%"><h2 style="font-size: 16px; margin: 5px 0;">Nro: ${datos.numeroDisplay}</h2>${datos.autorizacionEspecialInfo}</td>
+                    <td colspan="2" width="25%" align="right"><h2 style="font-size: 14px; margin: 5px 0;">Fecha: ${datos.fecha}</h2></td>
                 </tr>
                 <tr>
                     <td colspan="6" width="100%"><hr style="border: 1px solid #CCC;" /></td>
@@ -2685,34 +2688,41 @@ export function generarHTMLReceta(datos) {
                 </tr>
             </tbody>
         </table>
-        <table width="100%" border="1" cellspacing="0" bordercolor="ccc" cellpadding="2">
-            <tr>
-                <td width="3%"><b>Cant</b></td>
-                <td width="25%"><b>Monodroga</b></td>
-                <td width="25%"><b>Sugerida</b></td>
-                <td width="18%"><b>Presentación</b></td>
-                <td width="12%"><b>Dosis x día</b></td>
-                <td width="2%"><b>Cobertura</b></td>
-                <td width="2%"><b>Cobertura 2</b></td>
+        <table width="100%" border="1" cellspacing="0" bordercolor="#cccccc" cellpadding="4" style="font-size: 11px;">
+            <tr style="background-color: #f0f0f0;">
+                <td width="5%" align="center"><b>Cant</b></td>
+                <td width="23%"><b>Monodroga</b></td>
+                <td width="23%"><b>Sugerida</b></td>
+                <td width="20%"><b>Presentación</b></td>
+                <td width="15%"><b>Dosis x día</b></td>
+                <td width="7%" align="center"><b>Cobertura</b></td>
+                <td width="7%" align="center"><b>Cobertura 2</b></td>
             </tr>
             <tr>
-                <td width="3%">${datos.medicamento.cantprescripta}</td>
-                <td width="25%">${datos.medicamento.monodroga.toUpperCase()}</td>
-                <td width="25%">${datos.medicamento.nombre_comercial}</td>
-                <td width="18%">${datos.medicamento.presentacion}</td>
-                <td width="12%">${datos.medicamento.posologia}</td>
-                <td width="2%">${datos.medicamento.cobertura}%</td>
-                <td width="2%">${datos.medicamento.cobertura2}</td>
+                <td width="5%" align="center">${datos.medicamento.cantprescripta}</td>
+                <td width="23%">${datos.medicamento.monodroga.toUpperCase()}</td>
+                <td width="23%">${datos.medicamento.nombre_comercial}</td>
+                <td width="20%">${datos.medicamento.presentacion}</td>
+                <td width="15%">${datos.medicamento.posologia}</td>
+                <td width="7%" align="center">${datos.medicamento.cobertura}%</td>
+                <td width="7%" align="center">${datos.medicamento.cobertura2}</td>
             </tr>
         </table>
-        <table width="100%" cellpadding="2">
+        <table width="100%" cellpadding="4" style="font-size: 11px;">
             <tr>
-                <td colspan="6" width="100%"><font size="1.2em">Diagnóstico</font></td>
+                <td colspan="6" width="100%"><font size="1.2em"><b>Diagnóstico</b></font></td>
             </tr>
             <tr>
-                <td colspan="2" width="80%" valign="top" style="border: 1px solid #ccc;">${datos.diagnostico}</td>  
-                <td colspan="2" width="10%" align="right"><img src="${datos.qrCode}" width="100px"/></td>
-                <td colspan="2" width="20%" align="center">${datos.firma}<br>Médico: ${datos.medico}<br>MP. ${datos.matricula}<br>${datos.especialidad}</td>
+                <td colspan="2" width="70%" valign="top" style="border: 1px solid #ccc; padding: 8px; min-height: 80px;">${datos.diagnostico}</td>
+                <td colspan="2" width="15%" align="center" valign="middle">
+                    <img src="${datos.qrCode}" width="90px" style="margin: 5px;"/>
+                </td>
+                <td colspan="2" width="15%" align="center" valign="middle" style="font-size: 10px;">
+                    ${datos.firma}<br>
+                    <b>Médico:</b> ${datos.medico}<br>
+                    <b>MP.</b> ${datos.matricula}<br>
+                    ${datos.especialidad}
+                </td>
             </tr>
         </table>
         <table width="100%">
@@ -2749,15 +2759,21 @@ export function generarHTMLReceta(datos) {
                 </td>
             </tr>
         </table>
-        <table width="100%">
+        <table width="100%" style="font-size: 9px;">
             <tr>
-                <td width="20%"><font size="0.9em">Vence el día: ${datos.fechaVence}</font></td>
-                <td width="70%" align="left"><font size="0.5em">
-                    Ley 27553 Recetas electrónicas o digitales. Ley de prescripción y venta de medicamentos utilizando recetas electrónicas, modificación de las leyes 17132, 17565, 17818 Y 1930.<br/>
-                    Ley 27680 de Prevención y Control de la Resistencia a los Antimicrobianos.
-                    <br><b>Esta receta fue creada por un emisor inscripto y validado en el Registro de Recetarios Electrónicos del Ministerio de Salud de la Nación -RL 49</b>
-                </font><br/><font size="0.9em"><b>MEDICACIÓN DE USO CRÓNICO - TRATAMIENTO PROLONGADO</b></font></td>
-                <td width="10%" align="right"><img src="http://127.0.0.1/receta/imglogos/desarrolladoporpara.jpg" width="90%"></td>
+                <td width="15%" valign="top"><font size="2"><b>Vence el día:</b><br>${datos.fechaVence}</font></td>
+                <td width="70%" align="left" valign="top">
+                    <font size="1.5">
+                        <b>Ley 27553</b> Recetas electrónicas o digitales. Ley de prescripción y venta de medicamentos utilizando recetas electrónicas, modificación de las leyes 17132, 17565, 17818 Y 1930.<br/>
+                        <b>Ley 27680</b> de Prevención y Control de la Resistencia a los Antimicrobianos.<br/>
+                        <b>Esta receta fue creada por un emisor inscripto y validado en el Registro de Recetarios Electrónicos del Ministerio de Salud de la Nación -RL 49</b>
+                    </font>
+                    <br/><br/>
+                    <font size="2.5"><b>MEDICACIÓN DE USO CRÓNICO - TRATAMIENTO PROLONGADO</b></font>
+                </td>
+                <td width="15%" align="center" valign="middle">
+                    <img src="https://test1.recetasalud.ar/receta/imglogos/desarrolladoporpara.jpg" width="100px" style="max-width: 100%;">
+                </td>
             </tr>
         </table>
         <div style="page-break-after:always;"></div>
@@ -2775,17 +2791,19 @@ export function generarHTMLRecetaRechazada(datos) {
         <table width="100%">
             <thead>
                 <tr>
-                    <th colspan="2" width="50%" align="left"><font size="1.2em">Receta Electrónica</font></th>
-                    <th colspan="4" width="50%" align="right"><font size="0.8em"></font></th>
-                </tr> 
+                    <th colspan="2" width="50%" align="left"><font size="2">Receta Electrónica</font></th>
+                    <th colspan="4" width="50%" align="right"><font size="1.5" color="#dc3545"><b>RECHAZADO</b></font></th>
+                </tr>
             </thead>
             <tbody>
                 <tr>
                     <td colspan="6" width="100%"><hr style="border: 1px solid #000;" /></td>
-                </tr>  
+                </tr>
                 <tr>
-                    <td colspan="2" width="15%"><img src="https://test1.recetasalud.ar/logo/${datos.logoHeader}" width="180px"></td>
-                    <td colspan="2" width="35%"></td>
+                    <td colspan="2" width="25%" style="background-color: #f5f5f5; padding: 10px;">
+                        <img src="https://test1.recetasalud.ar/assets/images/logocmpc-blanci.png" width="120px" style="filter: drop-shadow(2px 2px 4px rgba(0,0,0,0.3));">
+                    </td>
+                    <td colspan="2" width="50%"></td>
                     <td colspan="2" width="40%" align="right"></td>
                 </tr>
                 <tr>
@@ -3040,26 +3058,47 @@ export const generarPDF = async (req, res) => {
         const pdfBuffer = await PDFUtils.generarPDFDesdeHTML(htmlContent);
 
         // 4. Guardar PDF
-        const rutaLocal = `/var/www/test1.recetasalud.ar/audi/tmp/`; // 🔥 CAMBIO AQUÍ
+        const isDev = process.env.NODE_ENV !== 'production';
+
+        let rutaPrincipal;
+        if (isDev) {
+            // En desarrollo: guardar en carpeta local del proyecto
+            rutaPrincipal = path.join(process.cwd(), 'pdfs-generated');
+        } else {
+            // En producción: usar las rutas del servidor
+            rutaPrincipal = `/var/www/test1.recetasalud.ar/audi/tmp/`;
+        }
+
         const rutaAzure = `/mnt/fscpcess01/prod/`;
 
-        // Crear directorios si no existen
-        await fs.mkdir(rutaLocal, { recursive: true }).catch(() => { });
-        await fs.mkdir(rutaAzure, { recursive: true }).catch(() => { });
+        // Crear directorio principal
+        await fs.mkdir(rutaPrincipal, { recursive: true }).catch(() => { });
 
-        // Guardar en ambas ubicaciones
-        await fs.writeFile(path.join(rutaLocal, nombreArchivo), pdfBuffer);
-        await fs.writeFile(path.join(rutaAzure, nombreArchivo), pdfBuffer);
+        // Guardar en ruta principal
+        await fs.writeFile(path.join(rutaPrincipal, nombreArchivo), pdfBuffer);
+
+        // En producción, guardar también en Azure
+        if (!isDev) {
+            await fs.mkdir(rutaAzure, { recursive: true }).catch(() => { });
+            await fs.writeFile(path.join(rutaAzure, nombreArchivo), pdfBuffer);
+        }
 
         console.log(`PDF generado exitosamente: ${nombreArchivo}`);
+        console.log(`📂 Guardado en: ${rutaPrincipal}`);
+
+        // Generar URL según entorno
+        const pdfUrl = isDev
+            ? `http://localhost:${process.env.PORT || 3000}/pdfs/${nombreArchivo}`
+            : `https://test1.recetasalud.ar/audi/tmp/${nombreArchivo}`;
 
         res.json({
             success: true,
             message: 'PDF generado correctamente',
             data: {
                 nombreArchivo,
-                url: `https://cpce.recetasalud.ar/audi/tmp/${nombreArchivo}`,
-                medicamentosAutorizados
+                url: pdfUrl,
+                medicamentosAutorizados,
+                rutaLocal: isDev ? rutaPrincipal : undefined
             }
         });
 

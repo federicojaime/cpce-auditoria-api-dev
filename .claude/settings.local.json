@@ -3,7 +3,17 @@
     "allow": [
       "Bash(wc:*)",
       "Bash(dir controllers)",
-      "Bash(dir:*)"
+      "Bash(dir:*)",
+      "Bash(git restore:*)",
+      "Bash(ls:*)",
+      "Bash(npm install:*)",
+      "Bash(tasklist:*)",
+      "Bash(findstr:*)",
+      "Bash(npm start)",
+      "Bash(netstat:*)",
+      "Bash(taskkill:*)",
+      "Bash(del \"c:\\Users\\FNJai\\Pictures\\Desktop\\alto costo nuevo\\cpce-auditoria-api-dev (1)\\cpce-auditoria-api-dev\\controllers\\altoCostoController_NEW.js\")",
+      "Bash(mysql:*)"
     ],
     "deny": [],
     "ask": []

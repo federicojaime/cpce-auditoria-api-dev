@@ -9,9 +9,11 @@ import rateLimit from 'express-rate-limit';
 // Importar rutas (solo las que existen)
 import authRoutes from './routes/auth.js';
 import auditoriasRoutes from './routes/auditorias.js';
+import altoCostoRoutes from './routes/altoCosto.js';
 import trialRoutes from './routes/trial.js';
 import proveedoresRoutes from './routes/proveedores.js';
 // Módulo de Compras
+import comprasRoutes from './routes/compras.js'; // ← NUEVO: Compras Alto Costo
 import presupuestosRoutes from './routes/presupuestos.js';
 import ordenesCompraRoutes from './routes/ordenesCompra.js';
 import notificacionesRoutes from './routes/notificaciones.js';
@@ -46,12 +48,20 @@ app.use((req, res, next) => {
     next();
 });
 
+// Servir PDFs estáticos (en desarrollo)
+if (process.env.NODE_ENV !== 'production') {
+    app.use('/pdfs', express.static('pdfs-generated'));
+    console.log('📄 Sirviendo PDFs en /pdfs');
+}
+
 // Rutas
 app.use('/api/auth', authRoutes);
-app.use('/api/auditorias', auditoriasRoutes);
+app.use('/api/auditorias', auditoriasRoutes); // Tratamiento Prolongado
+app.use('/api/alto-costo', altoCostoRoutes); // Alto Costo - Auditoría
 app.use('/api/trial', trialRoutes);
 app.use('/api/proveedores', proveedoresRoutes);
 // Módulo de Compras
+app.use('/api/compras', comprasRoutes); // ← NUEVO: Compras Alto Costo
 app.use('/api/presupuestos', presupuestosRoutes);
 app.use('/api/ordenes-compra', ordenesCompraRoutes);
 app.use('/api/notificaciones', notificacionesRoutes);
@@ -74,10 +84,12 @@ app.get('/', (req, res) => {
         version: '1.0.0',
         endpoints: {
             auth: '/api/auth',
-            auditorias: '/api/auditorias',
+            auditorias: '/api/auditorias (Tratamiento Prolongado)',
+            altoCosto: '/api/alto-costo (Alto Costo - Auditoría)',
             trial: '/api/trial',
             proveedores: '/api/proveedores',
             // Módulo de Compras
+            compras: '/api/compras (Alto Costo - Compras)',
             presupuestos: '/api/presupuestos',
             ordenesCompra: '/api/ordenes-compra',
             notificaciones: '/api/notificaciones',
