@@ -1,15 +1,91 @@
 import express from 'express';
+import { query, param } from 'express-validator';
 import * as comprasController from '../controllers/comprasController.js';
+import * as comprasReportesController from '../controllers/comprasReportesController.js';
 import { authenticateToken } from '../middleware/auth.js';
 
 const router = express.Router();
 
-// Todas las rutas requieren autenticación
-router.use(authenticateToken);
+// Middleware para convertir nombres de parámetros del frontend
+const convertirParametrosFrontend = (req, res, next) => {
+    // Convertir fechaInicio -> fechaDesde
+    if (req.query.fechaInicio) {
+        req.query.fechaDesde = req.query.fechaInicio;
+    }
+    // Convertir fechaFin -> fechaHasta
+    if (req.query.fechaFin) {
+        req.query.fechaHasta = req.query.fechaFin;
+    }
+    next();
+};
+
+// Aplicar conversión de parámetros a rutas de reportes (ANTES de autenticación)
+router.use('/reportes', convertirParametrosFrontend);
 
 // ============================================
-// RUTAS DE COMPRAS - ALTO COSTO
+// RUTAS DE REPORTES Y ANÁLISIS DE COMPRAS (SIN AUTENTICACIÓN - TEMPORAL)
 // ============================================
+
+/**
+ * @route   GET /api/compras/reportes/estadisticas
+ * @desc    Obtener estadísticas ejecutivas de compras
+ * @access  Público (temporal)
+ */
+router.get('/reportes/estadisticas',
+    comprasReportesController.obtenerEstadisticasEjecutivas
+);
+
+/**
+ * @route   GET /api/compras/reportes/distribucion-estados
+ * @desc    Obtener distribución de órdenes por estado
+ * @access  Privado
+ */
+router.get('/reportes/distribucion-estados',
+    comprasReportesController.obtenerDistribucionEstados
+);
+
+/**
+ * @route   GET /api/compras/reportes/cumplimiento
+ * @desc    Análisis de cumplimiento de tiempos de entrega
+ * @access  Público (temporal)
+ */
+router.get('/reportes/cumplimiento',
+    comprasReportesController.obtenerAnalisisCumplimiento
+);
+
+/**
+ * @route   GET /api/compras/reportes/ranking-proveedores
+ * @desc    Ranking de proveedores por desempeño
+ * @access  Público (temporal)
+ */
+router.get('/reportes/ranking-proveedores',
+    comprasReportesController.obtenerRankingProveedores
+);
+
+/**
+ * @route   GET /api/compras/ordenes
+ * @desc    Listar órdenes de compra con filtros
+ * @access  Público (temporal)
+ */
+router.get('/ordenes',
+    comprasReportesController.listarOrdenes
+);
+
+/**
+ * @route   GET /api/compras/ordenes/:id
+ * @desc    Obtener detalle completo de una orden
+ * @access  Público (temporal)
+ */
+router.get('/ordenes/:id',
+    comprasReportesController.obtenerDetalleOrden
+);
+
+// ============================================
+// RUTAS LEGACY DE COMPRAS - ALTO COSTO (REQUIEREN AUTENTICACIÓN)
+// ============================================
+
+// Todas las rutas siguientes requieren autenticación
+router.use(authenticateToken);
 
 // Obtener auditorías aprobadas pendientes de enviar a proveedores
 router.get('/pendientes', comprasController.getPendientes);

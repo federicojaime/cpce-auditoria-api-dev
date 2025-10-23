@@ -18,6 +18,7 @@ import presupuestosRoutes from './routes/presupuestos.js';
 import ordenesCompraRoutes from './routes/ordenesCompra.js';
 import notificacionesRoutes from './routes/notificaciones.js';
 import reportesComprasRoutes from './routes/reportesCompras.js';
+import reportesRoutes from './routes/reportes.js'; // ← NUEVO: Reportes SIN auth
 // import usuariosRoutes from './routes/usuarios.js'; // ❌ Comentar si no existe
 
 dotenv.config();
@@ -54,6 +55,10 @@ if (process.env.NODE_ENV !== 'production') {
     console.log('📄 Sirviendo PDFs en /pdfs');
 }
 
+// Servir formulario de proveedores (sin autenticación)
+app.use('/presupuesto', express.static('public'));
+console.log('📋 Formulario de presupuestos disponible en /presupuesto');
+
 // Rutas
 app.use('/api/auth', authRoutes);
 app.use('/api/auditorias', auditoriasRoutes); // Tratamiento Prolongado
@@ -66,6 +71,8 @@ app.use('/api/presupuestos', presupuestosRoutes);
 app.use('/api/ordenes-compra', ordenesCompraRoutes);
 app.use('/api/notificaciones', notificacionesRoutes);
 app.use('/api/reportes-compras', reportesComprasRoutes);
+// Reportes SIN autenticación (temporal para testing)
+app.use('/api/reportes', reportesRoutes); // ← NUEVO: Reportes públicos
 // app.use('/api/usuarios', usuariosRoutes); // ❌ Comentar si no existe
 
 // Ruta de health check

@@ -194,18 +194,27 @@ export const getPendientes = async (req, res) => {
                 CONCAT(UPPER(SUBSTRING(p.apellido, 1, 1)), LOWER(SUBSTRING(p.apellido, 2))) AS apellido,
                 CONCAT(UPPER(SUBSTRING(p.nombre, 1, 1)), LOWER(SUBSTRING(p.nombre, 2))) AS nombre,
                 p.dni,
-                DATE_FORMAT(r.fechaemision, '%d-%m-%Y') AS fecha,
+                DATE_FORMAT(r.fechaemision, '%d-%m-%Y') AS fecha_emision,
+                r.fechaemision AS fecha_emision_raw,
                 CONCAT(
                     CONCAT(UPPER(SUBSTRING(m.nombre, 1, 1)), LOWER(SUBSTRING(m.nombre, 2))), ' ',
                     CONCAT(UPPER(SUBSTRING(m.apellido, 1, 1)), LOWER(SUBSTRING(m.apellido, 2))), ' MP-', m.matricula
                 ) AS medico,
                 COUNT(DISTINCT CASE WHEN pm.estado_auditoria = 1 THEN pm.nro_orden END) as medicamentos_aprobados,
-                c.fecha_recepcion,
-                c.estado_compra
+                COALESCE(SUM(CASE WHEN pm.estado_auditoria = 1 THEN v.precio * pm.cantprescripta ELSE 0 END), 0) as precio_total,
+                DATEDIFF(NOW(), r.fechaemision) as dias_desde_emision,
+                CASE
+                    WHEN DATEDIFF(NOW(), r.fechaemision) > 15 THEN 'ALTA'
+                    WHEN DATEDIFF(NOW(), r.fechaemision) > 7 THEN 'MEDIA'
+                    ELSE 'NORMAL'
+                END as prioridad,
+                DATE_FORMAT(c.fecha_recepcion, '%d-%m-%Y %H:%i') AS fecha_recepcion,
+                COALESCE(c.estado_compra, 'pendiente_envio') as estado_compra
             FROM rec_receta_alto_costo r
             INNER JOIN rec_paciente p ON r.idpaciente = p.id
             INNER JOIN tmp_person m ON r.matricprescr = m.matricula
             INNER JOIN rec_prescrmedicamento_alto_costo pm ON r.idreceta = pm.idreceta
+            LEFT JOIN vad_020 v ON pm.codigo = v.codigo
             LEFT JOIN rec_compras_alto_costo c ON r.idreceta = c.idreceta
             WHERE r.idobrasocafiliado = 20
               AND pm.estado_auditoria = 1
@@ -234,13 +243,43 @@ export const getPendientes = async (req, res) => {
 
         console.log('[COMPRAS] Total encontrado:', total);
 
-        // Agregar paginación
-        dataSql += ` ORDER BY r.fechaemision ASC LIMIT ${parseInt(limit)} OFFSET ${(parseInt(page) - 1) * parseInt(limit)}`;
+        // Agregar paginación - ORDER BY prioridad primero (ALTA, MEDIA, NORMAL) y luego por fecha más antigua
+        dataSql += ` ORDER BY
+            CASE prioridad
+                WHEN 'ALTA' THEN 1
+                WHEN 'MEDIA' THEN 2
+                ELSE 3
+            END ASC,
+            r.fechaemision ASC
+            LIMIT ${parseInt(limit)} OFFSET ${(parseInt(page) - 1) * parseInt(limit)}`;
 
         console.log('[COMPRAS] Data SQL:', dataSql);
         const resultados = await executeQuery(dataSql, params);
 
         console.log('[COMPRAS] Resultados encontrados:', resultados.length);
+
+        // Para cada resultado, obtener el detalle de medicamentos aprobados
+        for (const resultado of resultados) {
+            const sqlMedicamentos = `
+                SELECT
+                    pm.nro_orden,
+                    pm.codigo,
+                    pm.cantprescripta as cantidad,
+                    v.monodroga,
+                    v.nombre_comercial,
+                    v.presentacion,
+                    COALESCE(v.precio, 0) as precio_unitario,
+                    COALESCE(v.precio * pm.cantprescripta, 0) as precio_total
+                FROM rec_prescrmedicamento_alto_costo pm
+                LEFT JOIN vad_020 v ON pm.codigo = v.codigo
+                WHERE pm.idreceta = ?
+                  AND pm.estado_auditoria = 1
+                ORDER BY pm.nro_orden
+            `;
+
+            const medicamentos = await executeQuery(sqlMedicamentos, [resultado.id]);
+            resultado.medicamentos = medicamentos;
+        }
 
         res.json({
             success: true,

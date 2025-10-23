@@ -1,0 +1,562 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Responder Solicitud de Presupuesto - CPCE Salud</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 900px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 15px;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.2);
+            overflow: hidden;
+        }
+
+        .header {
+            background: linear-gradient(135deg, #0066cc 0%, #004999 100%);
+            color: white;
+            padding: 30px;
+            text-align: center;
+        }
+
+        .header h1 {
+            font-size: 28px;
+            margin-bottom: 10px;
+        }
+
+        .header p {
+            opacity: 0.9;
+            font-size: 16px;
+        }
+
+        .content {
+            padding: 40px;
+        }
+
+        .info-box {
+            background: #e3f2fd;
+            border-left: 4px solid #2196F3;
+            padding: 20px;
+            border-radius: 5px;
+            margin-bottom: 30px;
+        }
+
+        .info-box p {
+            margin: 8px 0;
+            color: #1565C0;
+        }
+
+        .warning-box {
+            background: #fff3cd;
+            border-left: 4px solid #ffc107;
+            padding: 15px;
+            border-radius: 5px;
+            margin-bottom: 30px;
+        }
+
+        .warning-box strong {
+            color: #856404;
+        }
+
+        .auditoria-card {
+            background: #f8f9fa;
+            border-radius: 10px;
+            padding: 25px;
+            margin-bottom: 30px;
+            border: 2px solid #e0e0e0;
+        }
+
+        .auditoria-card h3 {
+            color: #0066cc;
+            margin-bottom: 15px;
+            font-size: 20px;
+        }
+
+        .auditoria-info {
+            color: #666;
+            margin-bottom: 20px;
+        }
+
+        .medicamento-card {
+            background: white;
+            border-radius: 8px;
+            padding: 20px;
+            margin-bottom: 20px;
+            border: 1px solid #ddd;
+        }
+
+        .medicamento-card h4 {
+            color: #333;
+            margin-bottom: 10px;
+            font-size: 18px;
+        }
+
+        .medicamento-info {
+            color: #666;
+            margin-bottom: 15px;
+            font-size: 14px;
+        }
+
+        .form-group {
+            margin-bottom: 20px;
+        }
+
+        .form-group label {
+            display: block;
+            margin-bottom: 8px;
+            color: #333;
+            font-weight: 500;
+        }
+
+        .form-group input[type="number"],
+        .form-group input[type="date"],
+        .form-group textarea {
+            width: 100%;
+            padding: 12px;
+            border: 2px solid #ddd;
+            border-radius: 5px;
+            font-size: 14px;
+            transition: border-color 0.3s;
+        }
+
+        .form-group input[type="number"]:focus,
+        .form-group input[type="date"]:focus,
+        .form-group textarea:focus {
+            outline: none;
+            border-color: #0066cc;
+        }
+
+        .form-group textarea {
+            resize: vertical;
+            min-height: 80px;
+        }
+
+        .checkbox-container {
+            display: flex;
+            align-items: center;
+            padding: 15px;
+            background: #f0f0f0;
+            border-radius: 5px;
+            cursor: pointer;
+            transition: background 0.3s;
+        }
+
+        .checkbox-container:hover {
+            background: #e0e0e0;
+        }
+
+        .checkbox-container input[type="checkbox"] {
+            width: 20px;
+            height: 20px;
+            margin-right: 10px;
+            cursor: pointer;
+        }
+
+        .checkbox-container label {
+            cursor: pointer;
+            margin: 0;
+            font-size: 16px;
+        }
+
+        .campos-obligatorios {
+            background: #e8f5e9;
+            padding: 15px;
+            border-radius: 5px;
+            border-left: 4px solid #4caf50;
+            margin-top: 15px;
+        }
+
+        .button-container {
+            text-align: center;
+            margin-top: 40px;
+            padding-top: 30px;
+            border-top: 2px solid #e0e0e0;
+        }
+
+        .btn-primary {
+            background: linear-gradient(135deg, #28a745 0%, #20873a 100%);
+            color: white;
+            padding: 15px 50px;
+            border: none;
+            border-radius: 50px;
+            font-size: 18px;
+            font-weight: bold;
+            cursor: pointer;
+            box-shadow: 0 5px 15px rgba(40, 167, 69, 0.3);
+            transition: transform 0.3s, box-shadow 0.3s;
+        }
+
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 20px rgba(40, 167, 69, 0.4);
+        }
+
+        .btn-primary:active {
+            transform: translateY(0);
+        }
+
+        .loading {
+            display: none;
+            text-align: center;
+            padding: 40px;
+        }
+
+        .loading.active {
+            display: block;
+        }
+
+        .spinner {
+            border: 4px solid #f3f3f3;
+            border-top: 4px solid #0066cc;
+            border-radius: 50%;
+            width: 50px;
+            height: 50px;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 20px;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        .error {
+            background: #f8d7da;
+            color: #721c24;
+            padding: 20px;
+            border-radius: 5px;
+            border-left: 4px solid #dc3545;
+            margin: 20px 0;
+        }
+
+        .success {
+            background: #d4edda;
+            color: #155724;
+            padding: 20px;
+            border-radius: 5px;
+            border-left: 4px solid #28a745;
+            margin: 20px 0;
+        }
+
+        .footer {
+            background: #f8f9fa;
+            padding: 20px;
+            text-align: center;
+            color: #666;
+            font-size: 14px;
+        }
+
+        @media (max-width: 768px) {
+            .content {
+                padding: 20px;
+            }
+
+            .header h1 {
+                font-size: 22px;
+            }
+
+            .medicamento-card {
+                padding: 15px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>📋 Solicitud de Presupuesto</h1>
+            <p>Sistema de Auditorías - Alto Costo</p>
+        </div>
+
+        <div class="content">
+            <div id="loading" class="loading">
+                <div class="spinner"></div>
+                <p>Cargando solicitud...</p>
+            </div>
+
+            <div id="error-container"></div>
+
+            <div id="form-container" style="display: none;">
+                <div class="info-box">
+                    <p><strong>Lote:</strong> <span id="lote-numero"></span></p>
+                    <p><strong>Proveedor:</strong> <span id="proveedor-nombre"></span></p>
+                    <p><strong>Fecha de envío:</strong> <span id="fecha-envio"></span></p>
+                </div>
+
+                <div class="warning-box">
+                    <strong>⏰ IMPORTANTE:</strong> Esta solicitud expira el <strong><span id="fecha-expiracion"></span></strong>
+                </div>
+
+                <form id="presupuesto-form">
+                    <div id="auditorias-container"></div>
+
+                    <div class="button-container">
+                        <button type="submit" class="btn-primary">
+                            ✓ Enviar Respuesta
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+
+        <div class="footer">
+            <p><strong>CPCE Salud</strong></p>
+            <p>Este enlace es personal e intransferible</p>
+            <p>© 2025 - Sistema de Auditorías</p>
+        </div>
+    </div>
+
+    <script>
+        // Obtener token de la URL
+        const urlParams = new URLSearchParams(window.location.search);
+        const token = urlParams.get('token') || window.location.pathname.split('/').pop();
+
+        // URL del API (cambiar según tu configuración)
+        const API_URL = 'http://localhost:3000/api';
+
+        let solicitudData = null;
+        let respuestas = {};
+
+        // Cargar solicitud al iniciar
+        document.addEventListener('DOMContentLoaded', () => {
+            cargarSolicitud();
+        });
+
+        async function cargarSolicitud() {
+            document.getElementById('loading').classList.add('active');
+
+            try {
+                const response = await fetch(`${API_URL}/presupuestos/solicitud/${token}`);
+                const data = await response.json();
+
+                if (!response.ok) {
+                    throw new Error(data.error || 'Error al cargar la solicitud');
+                }
+
+                solicitudData = data;
+                mostrarFormulario();
+
+            } catch (error) {
+                mostrarError(error.message);
+            } finally {
+                document.getElementById('loading').classList.remove('active');
+            }
+        }
+
+        function mostrarFormulario() {
+            const { solicitud, auditorias } = solicitudData;
+
+            // Llenar información general
+            document.getElementById('lote-numero').textContent = solicitud.loteNumero;
+            document.getElementById('proveedor-nombre').textContent = solicitud.proveedor.nombre;
+            document.getElementById('fecha-envio').textContent = new Date(solicitud.fechaEnvio).toLocaleDateString('es-AR');
+            document.getElementById('fecha-expiracion').textContent = new Date(solicitud.fechaExpiracion).toLocaleString('es-AR');
+
+            // Crear cards de auditorías y medicamentos
+            const container = document.getElementById('auditorias-container');
+            container.innerHTML = '';
+
+            auditorias.forEach(auditoria => {
+                const auditoriaCard = document.createElement('div');
+                auditoriaCard.className = 'auditoria-card';
+
+                let html = `
+                    <h3>Auditoría #${auditoria.id}</h3>
+                    <div class="auditoria-info">
+                        <p><strong>Paciente:</strong> ${auditoria.paciente_nombre}</p>
+                        <p><strong>DNI:</strong> ${auditoria.paciente_dni}</p>
+                    </div>
+                `;
+
+                auditoria.medicamentos.forEach(medicamento => {
+                    const key = `${auditoria.id}_${medicamento.id}`;
+
+                    // Inicializar respuesta
+                    respuestas[key] = {
+                        auditoriaId: auditoria.id,
+                        medicamentoId: medicamento.id,
+                        acepta: false,
+                        precio: '',
+                        fechaRetiro: '',
+                        fechaVencimiento: '',
+                        comentarios: ''
+                    };
+
+                    html += `
+                        <div class="medicamento-card">
+                            <h4>${medicamento.nombre}</h4>
+                            <div class="medicamento-info">
+                                <p><strong>Presentación:</strong> ${medicamento.presentacion}</p>
+                                <p><strong>Cantidad solicitada:</strong> ${medicamento.cantidad}</p>
+                            </div>
+
+                            <div class="checkbox-container" onclick="toggleAcepta('${key}')">
+                                <input type="checkbox" id="acepta_${key}" onchange="handleAcepta('${key}')">
+                                <label for="acepta_${key}">✓ Acepto proporcionar este medicamento</label>
+                            </div>
+
+                            <div id="campos_${key}" style="display: none;">
+                                <div class="campos-obligatorios">
+                                    <p style="margin-bottom: 15px;"><strong>Campos obligatorios si acepta:</strong></p>
+
+                                    <div class="form-group">
+                                        <label>Precio $ *</label>
+                                        <input
+                                            type="number"
+                                            step="0.01"
+                                            min="0"
+                                            id="precio_${key}"
+                                            placeholder="Ej: 1500.50"
+                                            oninput="handleInput('${key}', 'precio', this.value)"
+                                        >
+                                    </div>
+
+                                    <div class="form-group">
+                                        <label>Fecha de Retiro (cuándo puede entregar) *</label>
+                                        <input
+                                            type="date"
+                                            id="fechaRetiro_${key}"
+                                            onchange="handleInput('${key}', 'fechaRetiro', this.value)"
+                                        >
+                                    </div>
+
+                                    <div class="form-group">
+                                        <label>Fecha de Vencimiento del Medicamento *</label>
+                                        <input
+                                            type="date"
+                                            id="fechaVencimiento_${key}"
+                                            onchange="handleInput('${key}', 'fechaVencimiento', this.value)"
+                                        >
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="form-group">
+                                <label>Comentarios adicionales (opcional)</label>
+                                <textarea
+                                    id="comentarios_${key}"
+                                    placeholder="Ej: Disponible inmediatamente, Stock limitado, etc."
+                                    oninput="handleInput('${key}', 'comentarios', this.value)"
+                                ></textarea>
+                            </div>
+                        </div>
+                    `;
+                });
+
+                auditoriaCard.innerHTML = html;
+                container.appendChild(auditoriaCard);
+            });
+
+            document.getElementById('form-container').style.display = 'block';
+
+            // Configurar evento de envío
+            document.getElementById('presupuesto-form').addEventListener('submit', enviarRespuesta);
+        }
+
+        function toggleAcepta(key) {
+            const checkbox = document.getElementById(`acepta_${key}`);
+            checkbox.checked = !checkbox.checked;
+            handleAcepta(key);
+        }
+
+        function handleAcepta(key) {
+            const checkbox = document.getElementById(`acepta_${key}`);
+            const camposDiv = document.getElementById(`campos_${key}`);
+
+            respuestas[key].acepta = checkbox.checked;
+            camposDiv.style.display = checkbox.checked ? 'block' : 'none';
+
+            if (!checkbox.checked) {
+                // Limpiar campos si desmarca
+                respuestas[key].precio = '';
+                respuestas[key].fechaRetiro = '';
+                respuestas[key].fechaVencimiento = '';
+                document.getElementById(`precio_${key}`).value = '';
+                document.getElementById(`fechaRetiro_${key}`).value = '';
+                document.getElementById(`fechaVencimiento_${key}`).value = '';
+            }
+        }
+
+        function handleInput(key, field, value) {
+            respuestas[key][field] = value;
+        }
+
+        async function enviarRespuesta(e) {
+            e.preventDefault();
+
+            // Validar respuestas
+            const respuestasArray = Object.values(respuestas);
+
+            for (const resp of respuestasArray) {
+                if (resp.acepta) {
+                    if (!resp.precio || !resp.fechaRetiro || !resp.fechaVencimiento) {
+                        alert('Si acepta un medicamento, debe completar precio, fecha de retiro y fecha de vencimiento');
+                        return;
+                    }
+                }
+            }
+
+            // Enviar
+            document.getElementById('loading').classList.add('active');
+
+            try {
+                const response = await fetch(`${API_URL}/presupuestos/responder/${token}`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ respuestas: respuestasArray })
+                });
+
+                const data = await response.json();
+
+                if (!response.ok) {
+                    throw new Error(data.error || 'Error al enviar la respuesta');
+                }
+
+                mostrarExito(data.mensaje);
+
+            } catch (error) {
+                mostrarError(error.message);
+            } finally {
+                document.getElementById('loading').classList.remove('active');
+            }
+        }
+
+        function mostrarError(mensaje) {
+            const container = document.getElementById('error-container');
+            container.innerHTML = `
+                <div class="error">
+                    <strong>Error:</strong> ${mensaje}
+                </div>
+            `;
+        }
+
+        function mostrarExito(mensaje) {
+            const formContainer = document.getElementById('form-container');
+            formContainer.innerHTML = `
+                <div class="success">
+                    <h2 style="margin-bottom: 15px;">✓ ¡Respuesta Enviada Exitosamente!</h2>
+                    <p>${mensaje}</p>
+                    <p style="margin-top: 15px;">Gracias por su colaboración. Nos pondremos en contacto con usted a la brevedad.</p>
+                </div>
+            `;
+        }
+    </script>
+</body>
+</html>

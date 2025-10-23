@@ -13,7 +13,16 @@
       "Bash(netstat:*)",
       "Bash(taskkill:*)",
       "Bash(del \"c:\\Users\\FNJai\\Pictures\\Desktop\\alto costo nuevo\\cpce-auditoria-api-dev (1)\\cpce-auditoria-api-dev\\controllers\\altoCostoController_NEW.js\")",
-      "Bash(mysql:*)"
+      "Bash(mysql:*)",
+      "Bash(grep -A 30 \"CREATE TABLE \\`alt_solicitud_presupuesto\\`\" \"c:\\Users\\FNJai\\Pictures\\Desktop\\alto costo nuevo\\cpce-auditoria-api-dev (1)\\cpce-auditoria-api-dev\\u565673608_AltaLuna.sql\")",
+      "Bash(grep -A 30 \"CREATE TABLE \\`alt_solicitud_presupuesto_proveedor\\`\" \"c:\\Users\\FNJai\\Pictures\\Desktop\\alto costo nuevo\\cpce-auditoria-api-dev (1)\\cpce-auditoria-api-dev\\u565673608_AltaLuna.sql\")",
+      "Bash(grep -A 30 \"CREATE TABLE \\`alt_presupuesto_respuesta\\`\" \"c:\\Users\\FNJai\\Pictures\\Desktop\\alto costo nuevo\\cpce-auditoria-api-dev (1)\\cpce-auditoria-api-dev\\u565673608_AltaLuna.sql\")",
+      "Bash(grep -A 50 \"CREATE TABLE \\`alt_proveedor\\`\" \"c:\\Users\\FNJai\\Pictures\\Desktop\\alto costo nuevo\\cpce-auditoria-api-dev (1)\\cpce-auditoria-api-dev\\u565673608_AltaLuna.sql\")",
+      "Bash(grep -A 30 \"CREATE TABLE \\`alt_contacto_proveedor\\`\" \"c:\\Users\\FNJai\\Pictures\\Desktop\\alto costo nuevo\\cpce-auditoria-api-dev (1)\\cpce-auditoria-api-dev\\u565673608_AltaLuna.sql\")",
+      "Bash(grep -A 20 \"CREATE TABLE \\`rec_auditoria\\`\" \"c:\\Users\\FNJai\\Pictures\\Desktop\\alto costo nuevo\\cpce-auditoria-api-dev (1)\\cpce-auditoria-api-dev\\u565673608_AltaLuna.sql\")",
+      "Bash(grep -A 30 \"CREATE TABLE \\`rec_prescrmedicamento_alto_costo\\`\" \"c:\\Users\\FNJai\\Pictures\\Desktop\\alto costo nuevo\\cpce-auditoria-api-dev (1)\\cpce-auditoria-api-dev\\u565673608_AltaLuna.sql\")",
+      "Bash(grep -A 20 \"CREATE TABLE \\`rec_vademecum\\`\" \"c:\\Users\\FNJai\\Pictures\\Desktop\\alto costo nuevo\\cpce-auditoria-api-dev (1)\\cpce-auditoria-api-dev\\u565673608_AltaLuna.sql\")",
+      "Bash(grep -A 50 \"CREATE TABLE \\`alt_presupuesto_respuesta_detalle\\`\" \"c:\\Users\\FNJai\\Pictures\\Desktop\\alto costo nuevo\\cpce-auditoria-api-dev (1)\\cpce-auditoria-api-dev\\u565673608_AltaLuna.sql\")"
     ],
     "deny": [],
     "ask": []

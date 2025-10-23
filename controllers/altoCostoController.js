@@ -40,11 +40,13 @@ export const getPendientes = async (req, res) => {
                     CONCAT(UPPER(SUBSTRING(m.nombre, 1, 1)), LOWER(SUBSTRING(m.nombre, 2))), ' ',
                     CONCAT(UPPER(SUBSTRING(m.apellido, 1, 1)), LOWER(SUBSTRING(m.apellido, 2))), ' MP-', m.matricula
                 ) AS medico,
-                COUNT(DISTINCT pm.nro_orden) as renglones
+                COUNT(DISTINCT pm.nro_orden) as renglones,
+                COALESCE(SUM(v.precio * pm.cantprescripta), 0) as precio_total
             FROM rec_receta_alto_costo r
             INNER JOIN rec_paciente p ON r.idpaciente = p.id
             INNER JOIN tmp_person m ON r.matricprescr = m.matricula
             INNER JOIN rec_prescrmedicamento_alto_costo pm ON r.idreceta = pm.idreceta
+            LEFT JOIN vad_020 v ON pm.codigo = v.codigo
             WHERE r.idobrasocafiliado = 20
               AND (pm.estado_auditoria = 0 OR pm.estado_auditoria IS NULL)
         `;
@@ -148,12 +150,14 @@ export const getHistoricas = async (req, res) => {
                 CONCAT(
                     CONCAT(UPPER(SUBSTRING(au.nombre, 1, 1)), LOWER(SUBSTRING(au.nombre, 2))), ' ',
                     CONCAT(UPPER(SUBSTRING(au.apellido, 1, 1)), LOWER(SUBSTRING(au.apellido, 2)))
-                ) AS auditor
+                ) AS auditor,
+                COALESCE(SUM(v.precio * pm.cantprescripta), 0) as precio_total
             FROM rec_receta_alto_costo r
             INNER JOIN rec_paciente p ON r.idpaciente = p.id
             INNER JOIN tmp_person m ON r.matricprescr = m.matricula
             INNER JOIN rec_prescrmedicamento_alto_costo pm ON r.idreceta = pm.idreceta
             LEFT JOIN user_au au ON pm.id_auditor = au.id
+            LEFT JOIN vad_020 v ON pm.codigo = v.codigo
             WHERE r.idobrasocafiliado = 20
               AND pm.estado_auditoria IS NOT NULL
               AND pm.estado_auditoria != 0
@@ -283,7 +287,9 @@ export const getAuditoriaCompleta = async (req, res) => {
                 v.monodroga,
                 v.nombre_comercial,
                 v.presentacion,
-                v.tipo_venta
+                v.tipo_venta,
+                COALESCE(v.precio, 0) as precio_unitario,
+                COALESCE(v.precio * pm.cantprescripta, 0) as precio_total
             FROM rec_prescrmedicamento_alto_costo pm
             LEFT JOIN vad_020 v ON pm.codigo = v.codigo
             WHERE pm.idreceta = ?
@@ -291,6 +297,9 @@ export const getAuditoriaCompleta = async (req, res) => {
         `;
 
         const medicamentos = await executeQuery(sqlMedicamentos, [id]);
+
+        // Calcular precio total de la auditoría
+        const precio_total_auditoria = medicamentos.reduce((sum, med) => sum + parseFloat(med.precio_total || 0), 0);
 
         // 4. Obtener datos del médico
         const sqlMedico = `
@@ -314,7 +323,8 @@ export const getAuditoriaCompleta = async (req, res) => {
                 paciente,
                 medico,
                 medicamentos,
-                renglones: medicamentos.length
+                renglones: medicamentos.length,
+                precio_total: precio_total_auditoria
             }
         });
 
